@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# pytorch checkpoint
+*.pth
+*.pth.tar
+
+
 # Distribution / packaging
 .Python
 build/

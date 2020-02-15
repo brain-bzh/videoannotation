@@ -5,8 +5,8 @@ Applying pretrained DL models to annotate videos.
 
 Used models: 
 - [DenseNet161](https://arxiv.org/abs/1608.06993) pretrained on [ImageNet](http://image-net.org/challenges/LSVRC/2012/index)
-- FasterRCNN pretrained on [COCO](http://cocodataset.org/#home) 
-- Resnet18 pretrained on [Places365](http://places2.csail.mit.edu/)
+- [FasterRCNN-ResNet50-FPN](https://arxiv.org/abs/1506.01497) pretrained on [COCO](http://cocodataset.org/#home) 
+- [Resnet18](https://arxiv.org/abs/1512.03385) pretrained on [Places365](http://places2.csail.mit.edu/)
 
 Requirements
 --

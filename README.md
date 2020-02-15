@@ -3,6 +3,11 @@ Videoannotation
 
 Applying pretrained DL models to annotate videos. 
 
+Used models: 
+- [DenseNet161](https://arxiv.org/abs/1608.06993) pretrained on [ImageNet](http://image-net.org/challenges/LSVRC/2012/index)
+- FasterRCNN pretrained on [COCO](http://cocodataset.org/#home) 
+- Resnet18 pretrained on [Places365](http://places2.csail.mit.edu/)
+
 Requirements
 --
 pytorch 1.4.0
@@ -16,3 +21,5 @@ Usage
 This will generate a srt file with the same name as the video file. 
 
 Currently runs on the first 10 minutes of the video, annotating one frame every three seconds, and generates a subtitle that lasts 2 seconds.
+
+The code runs on CPU and uses about 26 Gb of RAM because the three models are instantiated in parallel. To run it on GPU, modify the code to load models one at a time. 

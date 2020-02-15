@@ -139,7 +139,7 @@ for curstart in tqdm(range(beg_film,end_film,nbsec)):
 
     annotation_str = "PLACES: {places} \nCOCO : {coco} \nImageNet : {net}".format(places=textplaces,coco=str(predlabels_det),net=text)
 
-    print(annotation_str)
+    #print(annotation_str)
 
     ### Append to srt file with timecode 
     objectdetection.gen_srt(annotation_str,start,srtfile=srtfile,num=n)

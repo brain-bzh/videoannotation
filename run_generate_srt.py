@@ -17,7 +17,6 @@ videofile = sys.argv[1]
 srtfile = (videofile[:-3] + 'srt')
 wavfile = (videofile[:-3] + 'wav')
 
-
 from audioset_tagging_cnn.inference import audio_tagging
 
 checkpoint_path='./LeeNet11_mAP=0.266.pth'
@@ -73,21 +72,6 @@ model_imagenet.eval()
 
 model_places = placesCNN_basic.model.eval()
 
-### Define and register hook for extracting output feature map 
-places_fm = []
-
-def get_fm_places(m, i, o):
-    places_fm.append((i[0].numpy())) 
-
-model_places.fc.register_forward_hook(get_fm_places)
-
-places_im = []
-
-def get_fm_im(m, i, o):
-    places_im.append((i[0].numpy())) 
-
-model_imagenet.fc.register_forward_hook(get_fm_im)
-
 n=0
 with torch.no_grad():    
     for curstart in tqdm(range(beg_film,end_film,nbsec)):
@@ -116,7 +100,7 @@ with torch.no_grad():
 
 
         # Make predictions for audioset 
-        clipwise_output, labels,sorted_indexes = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec)
+        clipwise_output, labels,sorted_indexes,_ = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec)
 
         ### Associate Classification labels to ImageNet prediction 
 
@@ -160,6 +144,6 @@ with torch.no_grad():
         utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
         n=n+1
 
-        print(places_fm.pop().shape,places_im.pop().shape)
-
+        
 os.remove(wavfile)
+

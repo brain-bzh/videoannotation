@@ -22,7 +22,7 @@ This will generate a srt file with the same name as the video file.
 
 Currently runs on the first 10 minutes of the video, annotating one frame every three seconds, and generates a subtitle that lasts 2 seconds.
 
-The code runs on CPU and uses about 26 Gb of RAM because the three models are instantiated in parallel. To run it on GPU, modify the code to load models one at a time. 
+The code runs on CPU and uses about 12 Gb of RAM because the three models are instantiated in parallel. To run it on GPU, modify the code to load models one at a time. 
 
 Credits
 --

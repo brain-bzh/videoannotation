@@ -10,9 +10,11 @@ Used models:
 
 Requirements
 --
-pytorch 1.4.0
+[pytorch](https://pytorch.org/) 1.4.0
 
-torchvision 0.5.0 
+[torchvision](https://pytorch.org/docs/stable/torchvision/index.html) 0.5.0  (in particular, the [read_video](https://pytorch.org/docs/stable/torchvision/io.html#torchvision.io.read_video) function needs a recent version)
+
+[pyAV](https://github.com/mikeboers/PyAV#installation)
 
 Usage
 --

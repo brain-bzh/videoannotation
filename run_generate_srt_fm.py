@@ -22,8 +22,6 @@ from audioset_tagging_cnn.inference import audio_tagging
 
 checkpoint_path='./LeeNet11_mAP=0.266.pth'
 
-
-#### TO DO 
 #### Check if audio file exists
 if os.path.isfile(wavfile) is False:
     
@@ -57,7 +55,7 @@ places_categories= placesCNN_basic.classes ### Places Categories
 fps = 24
 nb_frames = 1
 
-nbsec = 3
+nbsec = 1
 
 n_obj = 3
 
@@ -95,6 +93,8 @@ with torch.no_grad():
 
         start = curstart
         end = start + (nb_frames/fps)
+
+        onsets.append(curstart)
 
         
         vframes, aframes, info = read_video(filename=videofile,start_pts = start,end_pts=end,pts_unit='sec')
@@ -160,11 +160,11 @@ with torch.no_grad():
         #print(annotation_str)
 
         ### Append to srt file with timecode 
-        utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
+        utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n,duration=nbsec)
         n=n+1
         
 ## Removing temporary wave file 
 os.remove(wavfile)
 
 ### Saving feature maps and metadata
-np.savez_compressed(npzfile,places_fm = np.stack(places_fm),im_fm = np.stack(im_fm),audioset_fm=np.stack(audioset_fm))
+np.savez_compressed(npzfile,places_fm = np.stack(places_fm),im_fm = np.stack(im_fm),audioset_fm=np.stack(audioset_fm),dur=nbsec,onsets=onsets)

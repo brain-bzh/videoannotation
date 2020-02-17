@@ -79,68 +79,69 @@ model_places = placesCNN_basic.model.eval()
 
 n=0
 
-for curstart in tqdm(range(beg_film,end_film,nbsec)):
+with torch.no_grad():    
+    for curstart in tqdm(range(beg_film,end_film,nbsec)):
 
-    start = curstart
-    end = start + (nb_frames/fps)
+        start = curstart
+        end = start + (nb_frames/fps)
 
-    vframes, aframes, info = read_video(filename=videofile,start_pts = start,end_pts=end,pts_unit='sec')
+        vframes, aframes, info = read_video(filename=videofile,start_pts = start,end_pts=end,pts_unit='sec')
 
-    vframes = vframes.permute(0,3,1,2).float() / 255
+        vframes = vframes.permute(0,3,1,2).float() / 255
 
-    _,H,C,V = vframes.shape
-
-
-    ### make prediction for Places 
-
-    im_norm = centre_crop(vframes[0]).reshape(1,3,224,224)
-    preds_places = model_places(im_norm)
-
-    ### make prediction for Imagenet classification 
-
-    im_norm = normalize(vframes[0]).reshape(1,H,C,V)
-    
-    preds_class= model_imagenet(im_norm)
-
-    ### make predictions for object detection
-
-    preds = model(vframes)
-
-    ### Associate Detection labels to prediction and keep only the first n_obj
-
-    predlabels_det = [COCO_INSTANCE_CATEGORY_NAMES[i] for i in preds[0]['labels'].numpy()[:n_obj]]
-
-    ### Associate Classification labels to prediction 
-
-    allclasses = preds_class.data.numpy()[0]
-
-    # process output of Imagenet Classes and print results:
-    order = allclasses.argsort()
-    last = len(categories)-1
-    text = ''
-    for i in range(min(3, last+1)):
-        text += categories[order[last-i]]
-        text += ', '
-    text=text[:-2]
+        _,H,C,V = vframes.shape
 
 
-    # process output of Places Classes and print results:
+        ### make prediction for Places 
 
-    _, idx = preds_places[0].sort(0, True)
+        im_norm = centre_crop(vframes[0]).reshape(1,3,224,224)
+        preds_places = model_places(im_norm)
 
-    textplaces = ''
-    # output the prediction
-    for i in range(0, 5):
-        textplaces += places_categories[idx[i]]
-        textplaces += ', '
-    textplaces = textplaces[:-2]
+        ### make prediction for Imagenet classification 
 
-    ### Generate final string
+        im_norm = normalize(vframes[0]).reshape(1,H,C,V)
+        
+        preds_class= model_imagenet(im_norm)
 
-    annotation_str = "PLACES: {places} \nCOCO : {coco} \nImageNet : {net}".format(places=textplaces,coco=str(predlabels_det),net=text)
+        ### make predictions for object detection
 
-    #print(annotation_str)
+        preds = model(vframes)
 
-    ### Append to srt file with timecode 
-    objectdetection.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
-    n=n+1
+        ### Associate Detection labels to prediction and keep only the first n_obj
+
+        predlabels_det = [COCO_INSTANCE_CATEGORY_NAMES[i] for i in preds[0]['labels'].numpy()[:n_obj]]
+
+        ### Associate Classification labels to prediction 
+
+        allclasses = preds_class.data.numpy()[0]
+
+        # process output of Imagenet Classes and print results:
+        order = allclasses.argsort()
+        last = len(categories)-1
+        text = ''
+        for i in range(min(3, last+1)):
+            text += categories[order[last-i]]
+            text += ', '
+        text=text[:-2]
+
+
+        # process output of Places Classes and print results:
+
+        _, idx = preds_places[0].sort(0, True)
+
+        textplaces = ''
+        # output the prediction
+        for i in range(0, 5):
+            textplaces += places_categories[idx[i]]
+            textplaces += ', '
+        textplaces = textplaces[:-2]
+
+        ### Generate final string
+
+        annotation_str = "PLACES: {places} \nCOCO : {coco} \nImageNet : {net}".format(places=textplaces,coco=str(predlabels_det),net=text)
+
+        #print(annotation_str)
+
+        ### Append to srt file with timecode 
+        objectdetection.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
+        n=n+1

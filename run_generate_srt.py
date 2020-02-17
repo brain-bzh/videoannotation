@@ -82,7 +82,7 @@ with torch.no_grad():
 
         ### make prediction for Imagenet classification 
 
-        im_norm = normalize(vframes[0]).reshape(1,H,C,V)
+        #im_norm = normalize(vframes[0]).reshape(1,H,C,V)
         
         preds_class= model_imagenet(im_norm)
 

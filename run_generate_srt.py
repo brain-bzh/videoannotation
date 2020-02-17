@@ -4,7 +4,7 @@ from torchvision.models import densenet161
 import torch
 from torchvision.io import read_video,read_video_timestamps
 import torchvision.transforms as transforms
-import objectdetection
+import utils
 import placesCNN_basic
 import torch.nn as nn
 from importlib import reload
@@ -18,14 +18,18 @@ wavfile = (videofile[:-3] + 'wav')
 
 #### TO DO 
 #### Check if audio file exists
-#### If not, generate it and put it at the same place than the video file , as a wav, with the same name
-#### use this following audio file to generate predictions on sound 
 if os.path.isfile(wavfile) is False:
     
-    raise(NotImplementedError('wav file does not exist, please convert from {videofile}'.format(videofile=videofile)))
+    print('wav file does not exist, converting from {videofile}...'.format(videofile=videofile))
+
+    utils.convert_Audio(videofile, wavfile)
+
+#### If not, generate it and put it at the same place than the video file , as a wav, with the same name
+#### use this following audio file to generate predictions on sound 
 
 
 if os.path.isfile(srtfile):
+    print('Removing exisiting subtitles file {file}'.format(file=srtfile))
     os.remove(srtfile)
 
 normalize = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -39,7 +43,7 @@ centre_crop = transforms.Compose([
         normalize
 ])
 
-categories = objectdetection.categories ### ImageNet Categories
+categories = utils.categories ### ImageNet Categories
 
 places_categories= placesCNN_basic.classes ### Places Categories 
 
@@ -128,5 +132,7 @@ with torch.no_grad():
         #print(annotation_str)
 
         ### Append to srt file with timecode 
-        objectdetection.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
+        utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
         n=n+1
+
+os.remove(wavfile)

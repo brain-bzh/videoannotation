@@ -12,7 +12,7 @@ Requirements
 --
 [pytorch](https://pytorch.org/) 1.4.0
 
-[torchvision](https://pytorch.org/docs/stable/torchvision/index.html) 0.5.0  (in particular, the [read_video](https://pytorch.org/docs/stable/torchvision/io.html#torchvision.io.read_video) function needs a recent version)
+[torchvision](https://pytorch.org/docs/stable/torchvision/index.html) 0.5.0  (in particular, the [read_video](https://pytorch.org/docs/stable/torchvision/io.html#torchvision.io.read_video) function needs the pts_unit argument)
 
 [pyAV](https://github.com/mikeboers/PyAV#installation)
 
@@ -25,6 +25,10 @@ This will generate a srt file with the same name as the video file.
 Currently runs on the first 10 minutes of the video, annotating one frame every three seconds, and generates a subtitle that lasts 2 seconds.
 
 By default, the code runs on CPU and uses about 12 Gb of RAM because the three models are instantiated in parallel. It can easily be modified to run on GPU.
+
+
+![Demo](demo.png)
+
 
 Credits
 --

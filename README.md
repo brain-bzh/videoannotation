@@ -6,6 +6,7 @@ Applying pretrained DL models to annotate videos.
 Used models: 
 - [DenseNet161](https://arxiv.org/abs/1608.06993) pretrained on [ImageNet](http://image-net.org/challenges/LSVRC/2012/index)
 - [Resnet18](https://arxiv.org/abs/1512.03385) pretrained on [Places365](http://places2.csail.mit.edu/)
+- Audio Tagging on [Audioset](https://research.google.com/audioset/) using LeeNet11 from [PANNs](https://github.com/qiuqiangkong/audioset_tagging_cnn)
 
 Requirements
 --

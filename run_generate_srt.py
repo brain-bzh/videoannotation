@@ -11,10 +11,18 @@ from importlib import reload
 from tqdm import tqdm
 import os 
 import sys
+import numpy as np 
 
 videofile = sys.argv[1]
 srtfile = (videofile[:-3] + 'srt')
 wavfile = (videofile[:-3] + 'wav')
+
+
+from audioset_tagging_cnn.inference import audio_tagging
+
+checkpoint_path='./LeeNet11_mAP=0.266.pth'
+
+
 
 #### TO DO 
 #### Check if audio file exists
@@ -82,6 +90,7 @@ with torch.no_grad():
         start = curstart
         end = start + (nb_frames/fps)
 
+        
         vframes, aframes, info = read_video(filename=videofile,start_pts = start,end_pts=end,pts_unit='sec')
 
         vframes = vframes.permute(0,3,1,2).float() / 255
@@ -99,6 +108,10 @@ with torch.no_grad():
         #im_norm = normalize(vframes[0]).reshape(1,H,C,V)
         
         preds_class= model_imagenet(im_norm)
+
+
+        # Make predictions for audioset 
+        clipwise_output, labels,sorted_indexes = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=3)
 
         ### Associate Classification labels to ImageNet prediction 
 
@@ -119,15 +132,22 @@ with torch.no_grad():
         _, idx = preds_places[0].sort(0, True)
 
         textplaces = ''
-        # output the prediction
         for i in range(0, 5):
             textplaces += places_categories[idx[i]]
             textplaces += ', '
         textplaces = textplaces[:-2]
 
+
+        # Print audio tagging top probabilities
+        texttagging = ''
+        for k in range(3):
+            texttagging += np.array(labels)[sorted_indexes[k]]
+            texttagging += ', '
+        texttagging = texttagging[:-2]
+
         ### Generate final string
 
-        annotation_str = "PLACES: {places}\nImageNet : {net}".format(places=textplaces,net=text)
+        annotation_str = "Audioset: {tagging}\nPLACES: {places}\nImageNet : {net}".format(tagging=texttagging,places=textplaces,net=text)
 
         #print(annotation_str)
 

@@ -1,3 +1,5 @@
+## Author : Nicolas Farrugia, February 2020
+
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 import torch
 from torchvision.io import read_video,read_video_timestamps

@@ -1,7 +1,7 @@
 # PlacesCNN for scene classification
 #
 # based on https://github.com/CSAILVision/places365 , by Bolei Zhou,
-# modified by Nicolas Farrugia
+# modified by Nicolas Farrugia, February 2020
 
 import torch
 from torch.autograd import Variable as V

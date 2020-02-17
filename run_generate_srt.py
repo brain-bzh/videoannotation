@@ -1,3 +1,4 @@
+## Author : Nicolas Farrugia, February 2020
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
 from torchvision.models import densenet161
 import torch

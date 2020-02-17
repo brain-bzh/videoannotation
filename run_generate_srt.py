@@ -29,21 +29,6 @@ centre_crop = transforms.Compose([
         normalize
 ])
 
-COCO_INSTANCE_CATEGORY_NAMES = [
-    '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
-    'train', 'truck', 'boat', 'traffic light', 'fire hydrant', 'N/A', 'stop sign',
-    'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
-    'elephant', 'bear', 'zebra', 'giraffe', 'N/A', 'backpack', 'umbrella', 'N/A', 'N/A',
-    'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball',
-    'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket',
-    'bottle', 'N/A', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl',
-    'banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza',
-    'donut', 'cake', 'chair', 'couch', 'potted plant', 'bed', 'N/A', 'dining table',
-    'N/A', 'N/A', 'toilet', 'N/A', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
-    'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'N/A', 'book',
-    'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
-] ### COCO Categories
-
 categories = objectdetection.categories ### ImageNet Categories
 
 places_categories= placesCNN_basic.classes ### Places Categories 
@@ -68,9 +53,6 @@ end_film = 600
 
 allpreds = []
 onsets = []
-
-model = fasterrcnn_resnet50_fpn(pretrained=True)
-model.eval()
 
 model_imagenet = densenet161(pretrained=True)
 model_imagenet.eval()
@@ -104,15 +86,7 @@ with torch.no_grad():
         
         preds_class= model_imagenet(im_norm)
 
-        ### make predictions for object detection
-
-        preds = model(vframes)
-
-        ### Associate Detection labels to prediction and keep only the first n_obj
-
-        predlabels_det = [COCO_INSTANCE_CATEGORY_NAMES[i] for i in preds[0]['labels'].numpy()[:n_obj]]
-
-        ### Associate Classification labels to prediction 
+        ### Associate Classification labels to ImageNet prediction 
 
         allclasses = preds_class.data.numpy()[0]
 
@@ -139,7 +113,7 @@ with torch.no_grad():
 
         ### Generate final string
 
-        annotation_str = "PLACES: {places} \nCOCO : {coco} \nImageNet : {net}".format(places=textplaces,coco=str(predlabels_det),net=text)
+        annotation_str = "PLACES: {places}\nImageNet : {net}".format(places=textplaces,net=text)
 
         #print(annotation_str)
 

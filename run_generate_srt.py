@@ -14,6 +14,16 @@ import sys
 
 videofile = sys.argv[1]
 srtfile = (videofile[:-3] + 'srt')
+wavfile = (videofile[:-3] + 'wav')
+
+#### TO DO 
+#### Check if audio file exists
+#### If not, generate it and put it at the same place than the video file , as a wav, with the same name
+#### use this following audio file to generate predictions on sound 
+if os.path.isfile(wavfile) is False:
+    
+    raise(NotImplementedError('wav file does not exist, please convert from {videofile}'.format(videofile=videofile)))
+
 
 if os.path.isfile(srtfile):
     os.remove(srtfile)

@@ -63,4 +63,4 @@ def audio_tagging(audio_path,checkpoint_path,offset=None,duration=None,window_si
         embedding = batch_output_dict['embedding'].data.cpu().numpy()[0]
         #print('embedding: {}'.format(embedding.shape))
 
-    return clipwise_output, labels,sorted_indexes
+    return clipwise_output, labels,sorted_indexes,embedding

@@ -13,10 +13,7 @@ import os
 
 
 
-def convert_Audio(mediaFile, outPath, outExtension = '.wav', name = None):
-    if name == None : 
-        name, extension = os.path.splitext(os.path.basename(mediaFile))
-    outFile = os.path.join(outPath, name+outExtension)
+def convert_Audio(mediaFile, outFile):
     cmd = 'ffmpeg -i '+mediaFile+' '+outFile
     os.system(cmd)
     return outFile

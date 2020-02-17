@@ -1,6 +1,6 @@
 ## Author : Nicolas Farrugia, February 2020
 from torchvision.models.detection import fasterrcnn_resnet50_fpn
-from torchvision.models import densenet161
+from torchvision.models import densenet161,resnet18
 import torch
 from torchvision.io import read_video,read_video_timestamps
 import torchvision.transforms as transforms
@@ -55,14 +55,6 @@ categories = utils.categories ### ImageNet Categories
 
 places_categories= placesCNN_basic.classes ### Places Categories 
 
-### Define and register hook for extracting output feature map 
-#visualisation = []
-
-#def hook_fn(m, i, o):
-#    visualisation.append(o) 
-
-#model.roi_heads.box_predictor.cls_score.register_forward_hook(hook_fn)
-
 fps = 24
 nb_frames = 1
 
@@ -76,14 +68,27 @@ end_film = 600
 allpreds = []
 onsets = []
 
-model_imagenet = densenet161(pretrained=True)
+model_imagenet = resnet18(pretrained=True)
 model_imagenet.eval()
 
 model_places = placesCNN_basic.model.eval()
 
+### Define and register hook for extracting output feature map 
+places_fm = []
+
+def get_fm_places(m, i, o):
+    places_fm.append((i[0].numpy())) 
+
+model_places.fc.register_forward_hook(get_fm_places)
+
+places_im = []
+
+def get_fm_im(m, i, o):
+    places_im.append((i[0].numpy())) 
+
+model_imagenet.fc.register_forward_hook(get_fm_im)
 
 n=0
-
 with torch.no_grad():    
     for curstart in tqdm(range(beg_film,end_film,nbsec)):
 
@@ -111,7 +116,7 @@ with torch.no_grad():
 
 
         # Make predictions for audioset 
-        clipwise_output, labels,sorted_indexes = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=3)
+        clipwise_output, labels,sorted_indexes = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec)
 
         ### Associate Classification labels to ImageNet prediction 
 
@@ -154,5 +159,7 @@ with torch.no_grad():
         ### Append to srt file with timecode 
         utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n)
         n=n+1
+
+        print(places_fm.pop().shape,places_im.pop().shape)
 
 os.remove(wavfile)

@@ -31,7 +31,7 @@ def cat_file():
             if cat != 'classes':
                 categories.append(cat)
         f.close()
-        print('Number of categories:', len(categories))
+        #print('Number of categories:', len(categories))
     except:
         print('Error opening file ' + ' categories.txt')
         quit()

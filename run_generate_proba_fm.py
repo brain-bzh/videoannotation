@@ -111,8 +111,6 @@ with torch.no_grad():
         #im_norm = normalize(vframes[0]).reshape(1,H,C,V)
         
         preds_class= model_imagenet(im_norm)
-
-
         # Make predictions for audioset 
         clipwise_output, labels,sorted_indexes,embedding = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec)
 
@@ -128,18 +126,17 @@ with torch.no_grad():
         
 
         proba_im = F.softmax(preds_class.data[0], 0).data.squeeze()
-        im_proba.append(proba_im)
+        im_proba.append(proba_im.numpy())
         
         # process output of Places Classes and print results:
 
         _, idx = preds_places[0].sort(0, True)
 
-        
-        places_proba.append(F.softmax(preds_places, 1).data.squeeze())
+        places_proba.append(F.softmax(preds_places, 1).data.squeeze().numpy())
 
         ## AUdioSet
-
         audioset_proba.append(clipwise_output)
+
        
 ## Removing temporary wave file 
 os.remove(wavfile)
@@ -147,5 +144,5 @@ os.remove(wavfile)
 ### Saving feature maps, probabilities and metadata
 np.savez_compressed(npzfile,places_fm = np.stack(places_fm),im_fm = np.stack(im_fm),
     audioset_fm=np.stack(audioset_fm),
-    places_proba = places_proba,audioset_proba=audioset_proba,im_proba=im_proba,
+    places_proba = np.stack(places_proba),audioset_proba=np.stack(audioset_proba),im_proba=np.stack(im_proba),
     dur=nbsec,onsets=onsets)

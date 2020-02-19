@@ -1,20 +1,12 @@
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/life/life1_seg02.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/hidden_figures/hidden_figures_seg01.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/bourne_supremacy/bourne_supremacy_seg01.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg01.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg02.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg03.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg04.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg05.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg06.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg07.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg08.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg09.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg10.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg11.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg12.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg13.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg14.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg15.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg16.mkv
-python run_generate_proba_fm.py /home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg17.mkv
+### Usage : put the neuromod stimuli folder as argument of this script 
+BASE_DIR=$1
+
+for FILM in $(ls $BASE_DIR)
+do 
+FILM_DIR="$BASE_DIR$FILM/"
+
+for OUTPUT in $(ls $FILM_DIR*.mkv)
+do
+	python run_generate_proba_fm_gpu.py $OUTPUT
+done
+done

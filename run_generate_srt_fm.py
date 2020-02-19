@@ -7,6 +7,7 @@ import torchvision.transforms as transforms
 import utils
 import placesCNN_basic
 import torch.nn as nn
+from torch.nn import functional as F
 from importlib import reload
 from tqdm import tqdm
 import os 
@@ -72,13 +73,15 @@ model_places = placesCNN_basic.model.eval()
 
 ### Define and register hook for extracting output feature map 
 places_fm = []
+places_proba = []
 
 def get_fm_places(m, i, o):
-    places_fm.append((i[0].numpy()[0])) 
+    places_fm.append((i[0].numpy()[0]))
 
 model_places.fc.register_forward_hook(get_fm_places)
 
 im_fm = []
+im_proba = []
 
 def get_fm_im(m, i, o):
     im_fm.append((i[0].numpy()[0])) 
@@ -86,6 +89,7 @@ def get_fm_im(m, i, o):
 model_imagenet.fc.register_forward_hook(get_fm_im)
 
 audioset_fm = []
+audioset_proba = []
 
 n=0
 with torch.no_grad():    
@@ -134,6 +138,9 @@ with torch.no_grad():
             text += ', '
         text=text[:-2]
 
+        proba_im = F.softmax(preds_class.data[0], 0).data.squeeze()
+        im_proba.append(proba_im)
+        print(proba_im)
 
         # process output of Places Classes and print results:
 
@@ -145,14 +152,18 @@ with torch.no_grad():
             textplaces += ', '
         textplaces = textplaces[:-2]
 
+        places_proba.append(F.softmax(preds_places, 1).data.squeeze())
 
         # Print audio tagging top probabilities
         texttagging = ''
         for k in range(3):
             texttagging += np.array(labels)[sorted_indexes[k]]
             texttagging += ', '
+            print(clipwise_output[sorted_indexes[k]])
         texttagging = texttagging[:-2]
 
+        audioset_proba.append(clipwise_output)
+            
         ### Generate final string
 
         annotation_str = "Audioset: {tagging}\nPLACES: {places}\nImageNet : {net}".format(tagging=texttagging,places=textplaces,net=text)
@@ -166,5 +177,8 @@ with torch.no_grad():
 ## Removing temporary wave file 
 os.remove(wavfile)
 
-### Saving feature maps and metadata
-np.savez_compressed(npzfile,places_fm = np.stack(places_fm),im_fm = np.stack(im_fm),audioset_fm=np.stack(audioset_fm),dur=nbsec,onsets=onsets)
+### Saving feature maps, probabilities and metadata
+np.savez_compressed(npzfile,places_fm = np.stack(places_fm),im_fm = np.stack(im_fm),
+    audioset_fm=np.stack(audioset_fm),
+    places_proba = places_proba,audioset_proba=audioset_proba,im_proba=im_proba,
+    dur=nbsec,onsets=onsets)

@@ -12,7 +12,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 import librosa
 import soundfile
-
+from soundnet_model import SmallerWaveCNN
 
 
 ### define DataSet for one video (to be iterated on all videos)
@@ -26,16 +26,16 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
             videofile (string): Path to the mkv file of a video.
         """
         self.wavfile = (videofile[:-4] + '_subsampl.wav')
-        self.npzfile = (videofile[:-4] + '_fm.npz')
+        self.npzfile = (videofile[:-4] + '_fm_proba.npz')
 
         self.sample_rate = samplerate
 
 
-        ### fetch the feature vectors for the three modalities 
+        ### fetch the proba for the three modalities 
 
-        self.places_fm = np.load(self.npzfile)['places_fm']
-        self.im_fm = np.load(self.npzfile)['im_fm']
-        self.audioset_fm = np.load(self.npzfile)['audioset_fm']
+        self.places_proba = np.load(self.npzfile)['places_proba']
+        self.im_proba = np.load(self.npzfile)['im_proba']
+        self.audioset_proba = np.load(self.npzfile)['audioset_proba']
         self.dur = np.load(self.npzfile)['dur']
         self.onsets = np.load(self.npzfile)['onsets']
         
@@ -68,17 +68,101 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
 
         (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=self.dur)
 
-        sample = {'waveform':(waveform),'places':(self.places_fm[idx]),'imagenet':(self.im_fm)}
+        sample = {'waveform':(waveform),'places':(self.places_proba[idx]),
+            'audioset':(self.audioset_proba[idx]),'imagenet':(self.im_proba[idx])}
 
         
-        return transforms.ToTensor(sample)
+        return (sample)
 
 
 
-testvid = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/wolf_of_wall_street/the_wolf_of_wall_street_seg01.mkv'
+testvid = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/life/life1_seg01.mkv'
 
-testdataset = AudioToEmbeddings(testvid)
+dataset = AudioToEmbeddings(testvid)
 
-print(len(testdataset))
+dataloader = DataLoader(dataset,batch_size=64,shuffle=True)
 
-dataloader = DataLoader(testdataset,batch_size=16,shuffle=True)
+
+
+#### Simple Test case just to check the shapes
+
+if False:
+    onesample = dataset.__getitem__(25)
+
+    wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1)
+
+    places = torch.Tensor(onesample['places']).view(1,-1,1,1)
+
+    audioset = torch.Tensor(onesample['audioset']).view(1,-1,1,1)
+
+    imnet = torch.Tensor(onesample['imagenet']).view(1,-1,1,1)
+
+    model =SmallerWaveCNN()
+
+    obj_p,scene_p,audio_p = model(wav)
+    print(obj_p.shape,scene_p.shape,audio_p.shape)
+    print(places.shape,audioset.shape,imnet.shape)
+
+
+
+    kl = nn.KLDivLoss(reduction='batchmean')
+    print(kl(audioset,audio_p))
+
+
+def train_kl(epochs,net,optimizer,dataloader):
+
+
+    kl_im = nn.KLDivLoss(reduction='batchmean')
+    kl_audio = nn.KLDivLoss(reduction='batchmean')
+    kl_places = nn.KLDivLoss(reduction='batchmean')
+    running_loss = 0
+
+    for batch_idx, (onesample) in enumerate(dataloader):
+
+        ## zero grad
+        optimizer.zero_grad()
+        bsize = onesample['waveform'].shape[0]
+
+        # load data
+        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1)
+        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1)
+        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1)
+        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1)
+
+        # Forward pass
+        obj_p,scene_p,audio_p = net(wav)
+
+        # Calculate loss
+
+        loss_imagenet = kl_im(imnet,obj_p)
+        loss_audioset = kl_audio(places,scene_p)
+        loss_places = kl_places(audioset,audio_p)
+        
+        loss = loss_audioset + loss_imagenet + loss_places
+
+        loss.backward()
+
+        optimizer.step()
+
+        running_loss += loss.item()
+
+    return running_loss
+
+
+
+
+model = SmallerWaveCNN()
+
+optimizer = torch.optim.Adam(model.parameters())
+
+
+for epoch in range(10):
+    train_loss = train_kl(epoch,model,optimizer,dataloader)
+    print(train_loss)
+
+
+
+
+
+
+

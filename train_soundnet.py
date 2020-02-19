@@ -10,9 +10,10 @@ import os
 import sys
 import numpy as np 
 from torch.utils.data import DataLoader
+import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SmallerWaveCNN
+from soundnet_model import SmallerWaveCNN,SmallestWaveCNN
 
 
 ### define DataSet for one video (to be iterated on all videos)
@@ -80,12 +81,18 @@ testvid = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/life/life1_seg0
 
 dataset = AudioToEmbeddings(testvid)
 
-dataloader = DataLoader(dataset,batch_size=64,shuffle=True)
+trainset = torch.utils.data.Subset(dataset, range(400))
+valset = torch.utils.data.Subset(dataset, range(400,500))
+testset = torch.utils.data.Subset(dataset, range(500,599))
+
+trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
+valloader = DataLoader(valset,batch_size=64,shuffle=True)
+testloader = DataLoader(testset,batch_size=64,shuffle=True)
 
 
 
 #### Simple Test case just to check the shapes
-
+""" 
 if False:
     onesample = dataset.__getitem__(25)
 
@@ -106,59 +113,101 @@ if False:
 
 
     kl = nn.KLDivLoss(reduction='batchmean')
-    print(kl(audioset,audio_p))
+    print(kl(audioset,audio_p)) """
+
+tau = 0.1 
 
 
-def train_kl(epochs,net,optimizer,dataloader):
+def train_kl(epoch,trainloader):
 
-
-    kl_im = nn.KLDivLoss(reduction='batchmean')
-    kl_audio = nn.KLDivLoss(reduction='batchmean')
-    kl_places = nn.KLDivLoss(reduction='batchmean')
     running_loss = 0
+    net.train()
 
-    for batch_idx, (onesample) in enumerate(dataloader):
+    for batch_idx, (onesample) in enumerate(trainloader):
 
-        ## zero grad
+
         optimizer.zero_grad()
         bsize = onesample['waveform'].shape[0]
 
+        
+
         # load data
-        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1)
-        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1)
-        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1)
-        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1)
+        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
 
         # Forward pass
         obj_p,scene_p,audio_p = net(wav)
 
         # Calculate loss
 
-        loss_imagenet = kl_im(imnet,obj_p)
-        loss_audioset = kl_audio(places,scene_p)
-        loss_places = kl_places(audioset,audio_p)
+        loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
+        loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
+        loss_places = kl_places(F.log_softmax(scene_p,1),places)
         
         loss = loss_audioset + loss_imagenet + loss_places
 
-        loss.backward()
 
+        loss.backward()
+        
         optimizer.step()
 
         running_loss += loss.item()
 
-    return running_loss
+        
+    return running_loss/batch_idx
+
+
+def test_kl(epoch,testloader):
+
+    running_loss = 0
+    net.eval()
+    with torch.no_grad():
+        for batch_idx, (onesample) in enumerate(testloader):
+
+            bsize = onesample['waveform'].shape[0]
+
+            # load data
+            wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+            places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+            audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+            imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+
+            # Forward pass
+            obj_p,scene_p,audio_p = net(wav)
+
+            # Calculate loss
+            
+            loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
+            loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
+            loss_places = kl_places(F.log_softmax(scene_p,1),places)
+        
+            loss = loss_audioset + loss_imagenet + loss_places
+
+            running_loss += loss.item()
+            
+    return running_loss/batch_idx
 
 
 
 
-model = SmallerWaveCNN()
+net = SmallerWaveCNN()
+net = net.cuda()
+#optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
 
-optimizer = torch.optim.Adam(model.parameters())
+optimizer = torch.optim.Adam(net.parameters())
 
+kl_im = nn.KLDivLoss(reduction='batchmean')
+kl_audio = nn.KLDivLoss(reduction='batchmean')
+kl_places = nn.KLDivLoss(reduction='batchmean')
 
-for epoch in range(10):
-    train_loss = train_kl(epoch,model,optimizer,dataloader)
-    print(train_loss)
+for epoch in range(100):
+    train_loss = train_kl(epoch,trainloader)
+    val_loss = test_kl(epoch,valloader)
+    print("Train : {}, Val : {} ".format(train_loss,val_loss))
+
+print("Test Loss : {}".format(test_kl(1,testloader)))
 
 
 

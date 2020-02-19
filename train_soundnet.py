@@ -1,4 +1,5 @@
 ## Author : Nicolas Farrugia, February 2020
+from matplotlib import pyplot as plt 
 import torch
 from torchvision.io import read_video,read_video_timestamps
 import torchvision.transforms as transforms
@@ -192,24 +193,29 @@ def test_kl(epoch,testloader):
 
 
 
-net = SmallerWaveCNN()
+net = SmallestWaveCNN()
 net = net.cuda()
-#optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
+optimizer = torch.optim.SGD(net.parameters(),lr=0.1)
 
-optimizer = torch.optim.Adam(net.parameters())
+#optimizer = torch.optim.Adam(net.parameters())
 
 kl_im = nn.KLDivLoss(reduction='batchmean')
 kl_audio = nn.KLDivLoss(reduction='batchmean')
 kl_places = nn.KLDivLoss(reduction='batchmean')
 
-for epoch in range(100):
-    train_loss = train_kl(epoch,trainloader)
-    val_loss = test_kl(epoch,valloader)
-    print("Train : {}, Val : {} ".format(train_loss,val_loss))
+nbepoch = 50
+train_loss = []
+val_loss = []
+for epoch in tqdm(range(nbepoch)):
+    train_loss.append(train_kl(epoch,trainloader))
+    val_loss.append(test_kl(epoch,valloader))
+    #print("Train : {}, Val : {} ".format(train_loss,val_loss))
 
 print("Test Loss : {}".format(test_kl(1,testloader)))
 
-
+plt.plot(range(nbepoch),train_loss)
+plt.plot(range(nbepoch),val_loss)
+plt.show()
 
 
 

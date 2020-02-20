@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SmallerWaveCNN,SmallestWaveCNN
+from soundnet_model import WaveformCNN
 
 
 ### define DataSet for one video (to be iterated on all videos)
@@ -78,43 +78,31 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
 
 
 
-testvid = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/life/life1_seg01.mkv'
+#testvid = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/life/life1_seg01.mkv'
 
-dataset = AudioToEmbeddings(testvid)
+trainsets = []
+testsets= []
+valsets = []
 
-trainset = torch.utils.data.Subset(dataset, range(400))
-valset = torch.utils.data.Subset(dataset, range(400,500))
-testset = torch.utils.data.Subset(dataset, range(500,599))
+path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
+for root, dirs, files in os.walk(path, topdown=False):
+   for name in files:
+       if name[-3:] == 'mkv':
+           currentvid = os.path.join(root, name)
+           print(currentvid)
+           dataset = AudioToEmbeddings(currentvid)
+           trainsets.append(torch.utils.data.Subset(dataset, range(400)))
+           valsets.append(torch.utils.data.Subset(dataset, range(400,500)))
+           testsets.append(torch.utils.data.Subset(dataset, range(500,599)))
+
+
+trainset = torch.utils.data.ConcatDataset(trainsets)
+valset = torch.utils.data.ConcatDataset(valsets)
+testset = torch.utils.data.ConcatDataset(testsets)
 
 trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
-valloader = DataLoader(valset,batch_size=64,shuffle=True)
-testloader = DataLoader(testset,batch_size=64,shuffle=True)
-
-
-
-#### Simple Test case just to check the shapes
-""" 
-if False:
-    onesample = dataset.__getitem__(25)
-
-    wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1)
-
-    places = torch.Tensor(onesample['places']).view(1,-1,1,1)
-
-    audioset = torch.Tensor(onesample['audioset']).view(1,-1,1,1)
-
-    imnet = torch.Tensor(onesample['imagenet']).view(1,-1,1,1)
-
-    model =SmallerWaveCNN()
-
-    obj_p,scene_p,audio_p = model(wav)
-    print(obj_p.shape,scene_p.shape,audio_p.shape)
-    print(places.shape,audioset.shape,imnet.shape)
-
-
-
-    kl = nn.KLDivLoss(reduction='batchmean')
-    print(kl(audioset,audio_p)) """
+valloader = DataLoader(valset,batch_size=64)
+testloader = DataLoader(testset,batch_size=64)
 
 tau = 0.1 
 
@@ -193,7 +181,7 @@ def test_kl(epoch,testloader):
 
 
 
-net = SmallestWaveCNN()
+net = WaveformCNN(nfeat=8)
 net = net.cuda()
 optimizer = torch.optim.SGD(net.parameters(),lr=0.1)
 

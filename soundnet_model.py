@@ -2,24 +2,25 @@ import torch
 import torch.nn as nn
 
 class WaveformCNN(nn.Module):
-    def __init__(self,nfeat=16):
+    def __init__(self,nfeat=16,ninputfilters=16):
         super(WaveformCNN, self).__init__()
-        
-        self.define_module()
         self.nfeat = nfeat
+        self.ninputfilters = 16
+        self.define_module()
+        
         
     def define_module(self):
 
-        #The hyperparameters of this network have been set for 12 kHz, 1 second long waveforms. 
+        #The hyperparameters of this network have been set for 12 kHz, 1.49 second long waveforms. 
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(1,self.nfeat, (64,1), (2,1), (32,0), bias=True),
-            nn.BatchNorm2d(self.nfeat),
+            nn.Conv2d(1,self.ninputfilters, (64,1), (2,1), (32,0), bias=True),
+            nn.BatchNorm2d(self.ninputfilters),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1), (2,1))
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(self.nfeat, 2*self.nfeat, (32,1), (2,1), (16,0), bias=True),
+            nn.Conv2d(self.ninputfilters, 2*self.nfeat, (32,1), (2,1), (16,0), bias=True),
             nn.BatchNorm2d(2*self.nfeat),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1),(2,1))
@@ -31,7 +32,7 @@ class WaveformCNN(nn.Module):
         )
         self.conv4 = nn.Sequential(
             nn.Conv2d(4*self.nfeat, 8*self.nfeat, (8,1), (2,1), (4,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.BatchNorm2d(8*self.nfeat),
             nn.ReLU(inplace=True),
         )
         self.conv5 = nn.Sequential(
@@ -51,13 +52,13 @@ class WaveformCNN(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.object_emb = nn.Sequential(
-            nn.Conv2d(64*self.nfeat, 1000, (7,1), bias=True),
+            nn.Conv2d(64*self.nfeat, 1000, (10,1), bias=True),
         ) 
         self.scene_emb = nn.Sequential(
-            nn.Conv2d(64*self.nfeat, 365, (7,1), bias=True)
+            nn.Conv2d(64*self.nfeat, 365, (10,1), bias=True)
         )
         self.audiotag_emb = nn.Sequential(
-            nn.Conv2d(64*self.nfeat, 527, (7,1), bias=True)
+            nn.Conv2d(64*self.nfeat, 527, (10,1), bias=True)
         )
 
 
@@ -80,7 +81,7 @@ class SmallerWaveCNN(nn.Module):
         
     def define_module(self):
 
-        #The hyperparameters of this network have been set for 12 kHz, 1 second long waveforms. 
+        #The hyperparameters of this network have been set for 12 kHz, 1.49 second long waveforms. 
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(1,16, (64,1), (2,1), (32,0), bias=True),

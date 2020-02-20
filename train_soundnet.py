@@ -23,8 +23,8 @@ nfeat = 2
 ninputfilters = 8
 
 
-for ninputfilters in [1,2,4,8,16]:
-    for nfeat in [1,2,4]:
+for ninputfilters in [4,8,16]:
+    for nfeat in [int(ninputfilters/2),ninputfilters,2*ninputfilters,4*ninputfilters]:
 
         ### Model Setup
         net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters)
@@ -34,8 +34,8 @@ for ninputfilters in [1,2,4,8,16]:
         kl_places = nn.KLDivLoss(reduction='batchmean')
 
         ### Optimizer and Schedulers
-        optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
-        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
+        optimizer = torch.optim.SGD(net.parameters(),lr=0.01)
+        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=5,threshold=1e-4)
         #optimizer = torch.optim.Adam(net.parameters())
 
         # initialize the early_stopping object
@@ -118,5 +118,6 @@ for ninputfilters in [1,2,4,8,16]:
         ## Plot losses 
         plt.plot(train_loss)
         plt.plot(val_loss)
+        plt.ylim([7,11])
         plt.savefig(str_bestmodel_plot)
         plt.close()

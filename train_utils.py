@@ -1,0 +1,185 @@
+## Author : Nicolas Farrugia, February 2020
+from matplotlib import pyplot as plt 
+import torch
+from torchvision.io import read_video,read_video_timestamps
+import torchvision.transforms as transforms
+from utils import convert_Audio
+import torch.nn as nn
+from importlib import reload
+from tqdm import tqdm
+import os 
+import sys
+import numpy as np 
+from torch.utils.data import DataLoader
+import torch.nn.functional as F
+import librosa
+import soundfile
+
+
+### define DataSet for one video (to be iterated on all videos)
+
+class AudioToEmbeddings(torch.utils.data.Dataset):
+    """Face Landmarks dataset."""
+
+    def __init__(self, videofile,samplerate = 12000):
+        """
+        Args:
+            videofile (string): Path to the mkv file of a video.
+        """
+        self.wavfile = (videofile[:-4] + '_subsampl.wav')
+        self.npzfile = (videofile[:-4] + '_fm_proba.npz')
+
+        self.sample_rate = samplerate
+
+
+        ### fetch the proba for the three modalities 
+
+        self.places_proba = np.load(self.npzfile)['places_proba']
+        self.im_proba = np.load(self.npzfile)['im_proba']
+        self.audioset_proba = np.load(self.npzfile)['audioset_proba']
+        self.dur = np.load(self.npzfile)['dur']
+        self.onsets = np.load(self.npzfile)['onsets']
+        
+        #### Check if audio file exists
+        if os.path.isfile(self.wavfile) is False:
+
+            #### If not, generate it and put it at the same place than the video file , as a wav, with the same name
+            #### use this following audio file to generate predictions on sound 
+
+            print('wav file does not exist, converting from {videofile}...'.format(videofile=videofile))
+
+            convert_Audio(videofile, self.wavfile)
+
+        wav,native_sr = librosa.core.load(self.wavfile,duration=2,sr=None)
+
+        
+        if int(native_sr)!=int(self.sample_rate):
+            print("Native Sampling rate is {}".format(native_sr))
+
+            print('Resampling to {sr} Hz'.format(sr=self.sample_rate))
+
+            wav,_ = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True)
+            soundfile.write(self.wavfile,wav,self.sample_rate)
+
+    def __len__(self):
+        return len(self.onsets)
+
+    def __getitem__(self, idx):
+        try:
+            offset = self.onsets[idx]
+        except IndexError:
+            raise(IndexError('Pb with sizes'))
+
+
+        (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=self.dur)
+
+        sample = {'waveform':(waveform),'places':(self.places_proba[idx]),
+            'audioset':(self.audioset_proba[idx]),'imagenet':(self.im_proba[idx])}
+
+        
+        return (sample)
+
+
+def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places):
+
+    running_loss = 0
+    net.train()
+
+    for batch_idx, (onesample) in enumerate(trainloader):
+
+
+        optimizer.zero_grad()
+        bsize = onesample['waveform'].shape[0]
+
+        
+
+        # load data
+        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+
+        # Forward pass
+        obj_p,scene_p,audio_p = net(wav)
+
+        # Calculate loss
+
+        loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
+        loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
+        loss_places = kl_places(F.log_softmax(scene_p,1),places)
+        
+        loss = loss_audioset + loss_imagenet + loss_places
+
+
+        loss.backward()
+        
+        optimizer.step()
+
+        running_loss += loss.item()
+
+        
+    return running_loss/batch_idx
+
+
+def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
+
+    running_loss = 0
+    net.eval()
+    with torch.no_grad():
+        for batch_idx, (onesample) in enumerate(testloader):
+
+            bsize = onesample['waveform'].shape[0]
+
+            # load data
+            wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+            places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+            audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+            imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+
+            # Forward pass
+            obj_p,scene_p,audio_p = net(wav)
+
+            # Calculate loss
+            
+            loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
+            loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
+            loss_places = kl_places(F.log_softmax(scene_p,1),places)
+        
+            loss = loss_audioset + loss_imagenet + loss_places
+
+            running_loss += loss.item()
+            
+    return running_loss/batch_idx
+
+
+
+
+trainsets = []
+testsets= []
+valsets = []
+
+path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
+for root, dirs, files in os.walk(path, topdown=False):
+   for name in files:
+       if name[-3:] == 'mkv':
+           currentvid = os.path.join(root, name)
+           print(currentvid)
+           dataset = AudioToEmbeddings(currentvid)
+
+           total_len = (len(dataset))
+           train_len = int(np.floor(0.8*total_len))
+           val_len = int(np.floor(0.1*total_len))
+           test_len = int(np.floor(0.1*total_len))
+
+           trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
+           valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
+           testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
+
+
+trainset = torch.utils.data.ConcatDataset(trainsets)
+valset = torch.utils.data.ConcatDataset(valsets)
+testset = torch.utils.data.ConcatDataset(testsets)
+
+trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
+valloader = DataLoader(valset,batch_size=64)
+testloader = DataLoader(testset,batch_size=64)

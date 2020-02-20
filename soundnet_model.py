@@ -121,13 +121,13 @@ class SmallerWaveCNN(nn.Module):
             nn.ReLU(inplace=True)
         )
         self.object_emb = nn.Sequential(
-            nn.Conv2d(1024, 1000, (7,1), bias=True),
+            nn.Conv2d(1024, 1000, (10,1), bias=True),
         ) 
         self.scene_emb = nn.Sequential(
-            nn.Conv2d(1024, 365, (7,1), bias=True)
+            nn.Conv2d(1024, 365, (10,1), bias=True)
         )
         self.audiotag_emb = nn.Sequential(
-            nn.Conv2d(1024, 527, (7,1), bias=True)
+            nn.Conv2d(1024, 527, (10,1), bias=True)
         )
 
 

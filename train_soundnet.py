@@ -22,97 +22,101 @@ from datetime import datetime
 nfeat = 2
 ninputfilters = 8
 
-### Model Setup
-net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters)
-net = net.cuda()
-kl_im = nn.KLDivLoss(reduction='batchmean')
-kl_audio = nn.KLDivLoss(reduction='batchmean')
-kl_places = nn.KLDivLoss(reduction='batchmean')
 
-### Optimizer and Schedulers
-optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
-#optimizer = torch.optim.Adam(net.parameters())
+for ninputfilters in [1,2,4,8,16]:
+    for nfeat in [1,2,4]:
 
-# initialize the early_stopping object
-early_stopping = EarlyStopping(patience=10, verbose=True)
-nbepoch = 5000
+        ### Model Setup
+        net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters)
+        net = net.cuda()
+        kl_im = nn.KLDivLoss(reduction='batchmean')
+        kl_audio = nn.KLDivLoss(reduction='batchmean')
+        kl_places = nn.KLDivLoss(reduction='batchmean')
 
-#### Simple test just to check the shapes
+        ### Optimizer and Schedulers
+        optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
+        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
+        #optimizer = torch.optim.Adam(net.parameters())
 
-if False:
-    from train_utils import dataset
+        # initialize the early_stopping object
+        early_stopping = EarlyStopping(patience=10, verbose=True)
+        nbepoch = 5000
 
-    with torch.no_grad():
-        
-        onesample = dataset.__getitem__(25)
+        #### Simple test just to check the shapes
 
-        bsize = 1
+        if False:
+            from train_utils import dataset
 
-        # load data
-        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
-        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
-        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+            with torch.no_grad():
+                
+                onesample = dataset.__getitem__(25)
 
-        print(wav.shape)
-        obj_p,scene_p,audio_p = net(wav)
-        print(obj_p.shape,scene_p.shape,audio_p.shape)
-        print(imnet.shape,places.shape,audioset.shape)
+                bsize = 1
 
-### Main Training Loop 
-startdate = datetime.now()
+                # load data
+                wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+                places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+                audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+                imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
 
-train_loss = []
-val_loss = []
-for epoch in tqdm(range(nbepoch)):
-    train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places))
-    val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places))
-    #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
-    lr_sched.step(val_loss[-1])
+                print(wav.shape)
+                obj_p,scene_p,audio_p = net(wav)
+                print(obj_p.shape,scene_p.shape,audio_p.shape)
+                print(imnet.shape,places.shape,audioset.shape)
 
-    # early_stopping needs the validation loss to check if it has decresed, 
-        # and if it has, it will make a checkpoint of the current model
-    early_stopping(val_loss[-1], net)
-    
-    if early_stopping.early_stop:
-        print("Early stopping")
-        break
+        ### Main Training Loop 
+        startdate = datetime.now()
 
-test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places)
-print("Test Loss : {}".format(test_loss))
+        train_loss = []
+        val_loss = []
+        for epoch in tqdm(range(nbepoch)):
+            train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places))
+            val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places))
+            #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
+            lr_sched.step(val_loss[-1])
 
-enddate = datetime.now()
+            # early_stopping needs the validation loss to check if it has decresed, 
+                # and if it has, it will make a checkpoint of the current model
+            early_stopping(val_loss[-1], net)
+            
+            if early_stopping.early_stop:
+                print("Early stopping")
+                break
 
-## Reload best model 
-net.load_state_dict(torch.load('checkpoint.pt'))
+        test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places)
+        print("Test Loss : {}".format(test_loss))
 
-## Prepare data structure for load
-state = {
-            'net': net.state_dict(),
-            'epoch': epoch,
-            'train_loss' : train_loss,
-            'val_loss' : val_loss,
-            'test_loss' : test_loss,
-            'nfeat' : nfeat,
-            'ninputfilters' : ninputfilters,
-            'model' : net
-        }
+        enddate = datetime.now()
 
-if not os.path.isdir('checkpoints'):
-    os.mkdir('checkpoints')
+        ## Reload best model 
+        net.load_state_dict(torch.load('checkpoint.pt'))
 
-dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-str_bestmodel = os.path.join('checkpoints',"{}.pt".format(dt_string))
-str_bestmodel_plot = os.path.join('checkpoints',"{}.png".format(dt_string))
+        ## Prepare data structure for load
+        state = {
+                    'net': net.state_dict(),
+                    'epoch': epoch,
+                    'train_loss' : train_loss,
+                    'val_loss' : val_loss,
+                    'test_loss' : test_loss,
+                    'nfeat' : nfeat,
+                    'ninputfilters' : ninputfilters,
+                    'model' : net
+                }
 
-torch.save(state, str_bestmodel)
+        if not os.path.isdir('checkpoints'):
+            os.mkdir('checkpoints')
 
-# Remove temp file 
-os.remove('checkpoint.pt')
+        dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
+        str_bestmodel = os.path.join('checkpoints',"{}.pt".format(dt_string))
+        str_bestmodel_plot = os.path.join('checkpoints',"{}_{}_{}.png".format(dt_string,ninputfilters,nfeat))
 
-## Plot losses 
-plt.plot(train_loss)
-plt.plot(val_loss)
-plt.savefig(str_bestmodel_plot)
-plt.close()
+        torch.save(state, str_bestmodel)
+
+        # Remove temp file 
+        os.remove('checkpoint.pt')
+
+        ## Plot losses 
+        plt.plot(train_loss)
+        plt.plot(val_loss)
+        plt.savefig(str_bestmodel_plot)
+        plt.close()

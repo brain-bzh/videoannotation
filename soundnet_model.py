@@ -1,64 +1,63 @@
 import torch
 import torch.nn as nn
 
-
-
-class SmallestWaveCNN(nn.Module):
-    def __init__(self):
-        super(SmallestWaveCNN, self).__init__()
+class WaveformCNN(nn.Module):
+    def __init__(self,nfeat=16):
+        super(WaveformCNN, self).__init__()
         
         self.define_module()
+        self.nfeat = nfeat
         
     def define_module(self):
 
         #The hyperparameters of this network have been set for 12 kHz, 1 second long waveforms. 
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(1,4, (64,1), (2,1), (32,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(1,self.nfeat, (64,1), (2,1), (32,0), bias=True),
+            nn.BatchNorm2d(self.nfeat),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1), (2,1))
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(4, 4, (32,1), (2,1), (16,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(self.nfeat, 2*self.nfeat, (32,1), (2,1), (16,0), bias=True),
+            nn.BatchNorm2d(2*self.nfeat),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1),(2,1))
         )
         self.conv3 = nn.Sequential(
-            nn.Conv2d(4, 4, (16,1), (2,1), (8,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(2*self.nfeat, 4*self.nfeat, (16,1), (2,1), (8,0), bias=True),
+            nn.BatchNorm2d(4*self.nfeat),
             nn.ReLU(inplace=True)
         )
         self.conv4 = nn.Sequential(
-            nn.Conv2d(4, 4, (8,1), (2,1), (4,0), bias=True),
+            nn.Conv2d(4*self.nfeat, 8*self.nfeat, (8,1), (2,1), (4,0), bias=True),
             nn.BatchNorm2d(4),
             nn.ReLU(inplace=True),
         )
         self.conv5 = nn.Sequential(
-            nn.Conv2d(4, 4, (4,1),(2,1),(2,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(8*self.nfeat, 16*self.nfeat, (4,1),(2,1),(2,0), bias=True),
+            nn.BatchNorm2d(16*self.nfeat),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((4,1),(4,1))
         ) 
         self.conv6 = nn.Sequential(
-            nn.Conv2d(4, 4, (4,1), (2,1), (2,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(16*self.nfeat, 32*self.nfeat, (4,1), (2,1), (2,0), bias=True),
+            nn.BatchNorm2d(32*self.nfeat),
             nn.ReLU(inplace=True)
         )
         self.conv7 = nn.Sequential(
-            nn.Conv2d(4, 4, (4,1), (2,1), (2,0), bias=True),
-            nn.BatchNorm2d(4),
+            nn.Conv2d(32*self.nfeat, 64*self.nfeat, (4,1), (2,1), (2,0), bias=True),
+            nn.BatchNorm2d(64*self.nfeat),
             nn.ReLU(inplace=True)
         )
         self.object_emb = nn.Sequential(
-            nn.Conv2d(4, 1000, (7,1), bias=True),
+            nn.Conv2d(64*self.nfeat, 1000, (7,1), bias=True),
         ) 
         self.scene_emb = nn.Sequential(
-            nn.Conv2d(4, 365, (7,1), bias=True)
+            nn.Conv2d(64*self.nfeat, 365, (7,1), bias=True)
         )
         self.audiotag_emb = nn.Sequential(
-            nn.Conv2d(4, 527, (7,1), bias=True)
+            nn.Conv2d(64*self.nfeat, 527, (7,1), bias=True)
         )
 
 

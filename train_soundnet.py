@@ -14,16 +14,16 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SoundNet8_pytorch,SmallerWaveCNN
+from soundnet_model import SoundNet8_pytorch,SmallerWaveCNN,WaveformCNN
 from train_utils import train_kl,test_kl,AudioToEmbeddings,trainloader,valloader,testloader
 
 
 
 
-net = SmallerWaveCNN()
+net = WaveformCNN(nfeat=4,ninputfilters=16)
 net = net.cuda()
-optimizer = torch.optim.SGD(net.parameters(),lr=0.1)
-
+optimizer = torch.optim.SGD(net.parameters(),lr=0.01)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.1,patience=5,threshold=1e-4)
 #optimizer = torch.optim.Adam(net.parameters())
 
 kl_im = nn.KLDivLoss(reduction='batchmean')
@@ -60,7 +60,8 @@ val_loss = []
 for epoch in tqdm(range(nbepoch)):
     train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places))
     val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places))
-    print("Train : {}, Val : {} ".format(train_loss,val_loss))
+    print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
+    lr_sched.step(val_loss[-1])
 
 print("Test Loss : {}".format(test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places)))
 

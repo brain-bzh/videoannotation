@@ -14,28 +14,31 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SoundNet8_pytorch,SmallerWaveCNN,WaveformCNN
+from soundnet_model import WaveformCNN
 from train_utils import train_kl,test_kl,AudioToEmbeddings,trainloader,valloader,testloader
-
-
-# import EarlyStopping
 from pytorchtools import EarlyStopping
+from datetime import datetime
 
+nfeat = 2
+ninputfilters = 8
 
-
-
-net = WaveformCNN(nfeat=4,ninputfilters=16)
+### Model Setup
+net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters)
 net = net.cuda()
-optimizer = torch.optim.SGD(net.parameters(),lr=0.01)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=3,threshold=1e-4)
-#optimizer = torch.optim.Adam(net.parameters())
-
 kl_im = nn.KLDivLoss(reduction='batchmean')
 kl_audio = nn.KLDivLoss(reduction='batchmean')
 kl_places = nn.KLDivLoss(reduction='batchmean')
 
+### Optimizer and Schedulers
+optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
+#optimizer = torch.optim.Adam(net.parameters())
 
-#### Simple Test case just to check the shapes
+# initialize the early_stopping object
+early_stopping = EarlyStopping(patience=10, verbose=True)
+nbepoch = 5000
+
+#### Simple test just to check the shapes
 
 if False:
     from train_utils import dataset
@@ -57,17 +60,15 @@ if False:
         print(obj_p.shape,scene_p.shape,audio_p.shape)
         print(imnet.shape,places.shape,audioset.shape)
 
+### Main Training Loop 
+startdate = datetime.now()
 
-# initialize the early_stopping object
-early_stopping = EarlyStopping(patience=7, verbose=True)
-
-nbepoch = 500
 train_loss = []
 val_loss = []
 for epoch in tqdm(range(nbepoch)):
     train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places))
     val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places))
-    print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
+    #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
     lr_sched.step(val_loss[-1])
 
     # early_stopping needs the validation loss to check if it has decresed, 
@@ -78,13 +79,40 @@ for epoch in tqdm(range(nbepoch)):
         print("Early stopping")
         break
 
-print("Test Loss : {}".format(test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places)))
+test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places)
+print("Test Loss : {}".format(test_loss))
 
-plt.plot(range(nbepoch),train_loss)
-plt.plot(range(nbepoch),val_loss)
-plt.show()
+enddate = datetime.now()
 
+## Reload best model 
+net.load_state_dict(torch.load('checkpoint.pt'))
 
+## Prepare data structure for load
+state = {
+            'net': net.state_dict(),
+            'epoch': epoch,
+            'train_loss' : train_loss,
+            'val_loss' : val_loss,
+            'test_loss' : test_loss,
+            'nfeat' : nfeat,
+            'ninputfilters' : ninputfilters,
+            'model' : net
+        }
 
+if not os.path.isdir('checkpoints'):
+    os.mkdir('checkpoints')
 
+dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
+str_bestmodel = os.path.join('checkpoints',"{}.pt".format(dt_string))
+str_bestmodel_plot = os.path.join('checkpoints',"{}.png".format(dt_string))
 
+torch.save(state, str_bestmodel)
+
+# Remove temp file 
+os.remove('checkpoint.pt')
+
+## Plot losses 
+plt.plot(train_loss)
+plt.plot(val_loss)
+plt.savefig(str_bestmodel_plot)
+plt.close()

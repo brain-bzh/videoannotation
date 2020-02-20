@@ -12,7 +12,9 @@ from importlib import reload
 from tqdm import tqdm
 import os 
 import sys
-import numpy as np 
+import numpy as np
+
+from librosa.core import get_duration
 
 videofile = sys.argv[1]
 wavfile = (videofile[:-3] + 'wav')
@@ -55,7 +57,7 @@ nbsec = 1.49
 n_obj = 3
 
 beg_film = 1
-end_film = 600
+end_film = np.floor(get_duration(filename=wavfile))
 
 allpreds = []
 onsets = []

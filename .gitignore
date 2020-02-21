@@ -9,7 +9,9 @@ __pycache__/
 # pytorch checkpoint
 *.pth
 *.pth.tar
+*.pt
 
+*.png
 
 # Distribution / packaging
 .Python

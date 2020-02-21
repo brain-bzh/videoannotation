@@ -23,7 +23,7 @@ nfeat = 2
 ninputfilters = 8
 
 
-for ninputfilters in [4,8,16]:
+for ninputfilters in [8,16]:
     for nfeat in [int(ninputfilters/2),ninputfilters,2*ninputfilters,4*ninputfilters]:
 
         ### Model Setup
@@ -34,12 +34,12 @@ for ninputfilters in [4,8,16]:
         kl_places = nn.KLDivLoss(reduction='batchmean')
 
         ### Optimizer and Schedulers
-        optimizer = torch.optim.SGD(net.parameters(),lr=0.01)
-        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=5,threshold=1e-4)
+        optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
+        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
         #optimizer = torch.optim.Adam(net.parameters())
 
         # initialize the early_stopping object
-        early_stopping = EarlyStopping(patience=10, verbose=True)
+        early_stopping = EarlyStopping(patience=8, verbose=True)
         nbepoch = 5000
 
         #### Simple test just to check the shapes

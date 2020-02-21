@@ -12,7 +12,9 @@ from importlib import reload
 from tqdm import tqdm
 import os 
 import sys
-import numpy as np 
+import numpy as np
+
+from librosa.core import get_duration
 
 videofile = sys.argv[1]
 wavfile = (videofile[:-3] + 'wav')
@@ -50,12 +52,12 @@ places_categories= placesCNN_basic.classes ### Places Categories
 fps = 24
 nb_frames = 1
 
-nbsec = 1
+nbsec = 1.49
 
 n_obj = 3
 
-beg_film = 1
-end_film = 600
+beg_film = 0
+end_film = np.floor(get_duration(filename=wavfile))
 
 allpreds = []
 onsets = []
@@ -70,7 +72,7 @@ places_fm = []
 places_proba = []
 
 def get_fm_places(m, i, o):
-    places_fm.append((i[0].numpy()[0]))
+    places_fm.append((i[0].cpu().numpy()[0]))
 
 model_places.fc.register_forward_hook(get_fm_places)
 
@@ -78,7 +80,7 @@ im_fm = []
 im_proba = []
 
 def get_fm_im(m, i, o):
-    im_fm.append((i[0].numpy()[0])) 
+    im_fm.append((i[0].cpu().numpy()[0])) 
 
 model_imagenet.fc.register_forward_hook(get_fm_im)
 
@@ -86,7 +88,7 @@ audioset_fm = []
 audioset_proba = []
 
 with torch.no_grad():    
-    for curstart in tqdm(range(beg_film,end_film,nbsec)):
+    for curstart in tqdm(np.arange(beg_film,end_film,nbsec)):
 
         start = curstart
         end = start + (nb_frames/fps)
@@ -112,13 +114,13 @@ with torch.no_grad():
         
         preds_class= model_imagenet(im_norm)
         # Make predictions for audioset 
-        clipwise_output, labels,sorted_indexes,embedding = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec)
+        clipwise_output, labels,sorted_indexes,embedding = audio_tagging(wavfile,checkpoint_path,offset=curstart,duration=nbsec,usecuda=False)
 
         audioset_fm.append(embedding)
 
         ### Associate Classification labels to ImageNet prediction 
 
-        allclasses = preds_class.data.numpy()[0]
+        allclasses = preds_class.data.cpu().numpy()[0]
 
         # process output of Imagenet Classes and print results:
         order = allclasses.argsort()
@@ -126,13 +128,13 @@ with torch.no_grad():
         
 
         proba_im = F.softmax(preds_class.data[0], 0).data.squeeze()
-        im_proba.append(proba_im.numpy())
+        im_proba.append(proba_im.cpu().numpy())
         
         # process output of Places Classes and print results:
 
         _, idx = preds_places[0].sort(0, True)
 
-        places_proba.append(F.softmax(preds_places, 1).data.squeeze().numpy())
+        places_proba.append(F.softmax(preds_places, 1).data.squeeze().cpu().numpy())
 
         ## AUdioSet
         audioset_proba.append(clipwise_output)

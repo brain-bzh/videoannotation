@@ -56,7 +56,7 @@ nbsec = 1.49
 
 n_obj = 3
 
-beg_film = 1
+beg_film = 0
 end_film = np.floor(get_duration(filename=wavfile))
 
 allpreds = []

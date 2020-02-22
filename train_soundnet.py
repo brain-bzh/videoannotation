@@ -91,7 +91,7 @@ for ninputfilters in [8,16]:
         ## Reload best model 
         net.load_state_dict(torch.load('checkpoint.pt'))
 
-        ## Prepare data structure for load
+        ## Prepare data structure for checkpoint
         state = {
                     'net': net.state_dict(),
                     'epoch': epoch,

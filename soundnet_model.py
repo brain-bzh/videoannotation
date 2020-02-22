@@ -2,10 +2,20 @@ import torch
 import torch.nn as nn
 
 class WaveformCNN(nn.Module):
-    def __init__(self,nfeat=16,ninputfilters=16):
+    def __init__(self,nfeat=16,ninputfilters=16,do_encoding_fmri=False,nroi=210,fmrihidden=1000):
         super(WaveformCNN, self).__init__()
+
+        ## Hyper parameters of the main branch
         self.nfeat = nfeat
         self.ninputfilters = 16
+
+        ### Hyper parameters of the fmri encoding model 
+        self.do_encoding_fmri = do_encoding_fmri
+        self.nroi = nroi
+        self.fmrihidden = fmrihidden
+
+        ### Define all modules
+
         self.define_module()
         
         
@@ -60,6 +70,13 @@ class WaveformCNN(nn.Module):
         self.audiotag_emb = nn.Sequential(
             nn.Conv2d(64*self.nfeat, 527, (10,1), bias=True)
         )
+        if self.do_encoding_fmri:
+            self.encoding_fmri = nn.Sequential(
+                nn.Conv2d(64*self.nfeat,self.fmrihidden,(10,1),bias=True),
+                nn.ReLU(inplace=True)
+            )
+            self.outputroi = nn.Linear(self.fmrihidden,self.nroi)
+
 
 
     def forward(self, x):
@@ -68,7 +85,10 @@ class WaveformCNN(nn.Module):
         object_emb = self.object_emb(x)
         scene_emb = self.scene_emb(x) 
         audiotag_emb = self.audiotag_emb(x)
-        return object_emb, scene_emb, audiotag_emb
+        if self.do_encoding_fmri:
+            x=self.encoding_fmri(x)
+            x=self.outputroi(x.view(-1,1000))
+        return object_emb, scene_emb, audiotag_emb,x
 
 
 

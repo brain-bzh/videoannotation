@@ -23,7 +23,7 @@ nfeat = 2
 ninputfilters = 8
 
 
-for ninputfilters in [2,8,16]:
+for ninputfilters in [16,2,4]:
     for nfeat in [int(ninputfilters/2),ninputfilters,2*ninputfilters,4*ninputfilters]:
 
         ### Model Setup
@@ -106,12 +106,12 @@ for ninputfilters in [2,8,16]:
                     'model' : net
                 }
 
-        if not os.path.isdir('checkpoints'):
-            os.mkdir('checkpoints')
+        if not os.path.isdir('checkpoints_encoding'):
+            os.mkdir('checkpoints_encoding')
 
         dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-        str_bestmodel = os.path.join('checkpoints',"{}.pt".format(dt_string))
-        str_bestmodel_plot = os.path.join('checkpoints',"{}_{}_{}.png".format(dt_string,ninputfilters,nfeat))
+        str_bestmodel = os.path.join('checkpoints_encoding',"{}.pt".format(dt_string))
+        str_bestmodel_plot = os.path.join('checkpoints_encoding',"{}_{}_{}.png".format(dt_string,ninputfilters,nfeat))
 
         torch.save(state, str_bestmodel)
 

@@ -14,6 +14,63 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
+import glob
+import os
+
+### Utility function to fetch fMRI data
+def fetchMRI(videofile,fmripath):
+    ### isolate the mkv file (->filename) and the rest of the path (->videopath)
+    videopath,filename = os.path.split(videofile)
+
+    #formatting the name to correspond to mri run formatting
+    name = filename.replace('_', '')
+    if name.startswith('the'):
+        name = name.replace('the', '', 1)
+    if name.find('life') > -1 :
+        name = name.replace('life1', 'life')
+
+    name = name.replace('seg','_run-')
+
+    ## Rename to match the parcellated filenames
+    name = name.replace('.mkv','npz.npz')
+
+    # list of all parcellated filenames 
+    allnpzfiles = (os.listdir(fmripath))
+
+    # match videofilename with parcellated files
+    mriMatchs = []
+
+    for curfile in allnpzfiles:
+        if curfile[23:] == (name):
+            #print(curfile[23:],(name))
+            mriMatchs.append(curfile)    
+
+    #in case of multiple run for 1 film segment
+    association = {}
+    keyList=[]
+    name_seg = filename[:-4]
+
+    if len(mriMatchs) > 1 :
+        numSessions = []
+        for run in mriMatchs :
+            index_sess = run.find('ses-vid')
+            numSessions.append(int(run[index_sess+7:index_sess+10]))
+            
+        if numSessions[0] < numSessions[1] : 
+            association[name_seg+'_S1'] = [videofile, mriMatchs[0]]
+            keyList.append(name_seg+'_S1')
+            association[name_seg+'_S2'] = [videofile, mriMatchs[1]]
+            keyList.append(name_seg+'_S2')
+        else : 
+            association[name_seg+'_S1'] = [videofile, mriMatchs[1]]
+            keyList.append(name_seg+'_S1')
+            association[name_seg+'_S2'] = [videofile, mriMatchs[0]]
+            keyList.append(name_seg+'_S2')
+    else : 
+        association[name_seg] = [videofile, mriMatchs[0]]
+        keyList.append(name_seg)
+
+    return association
 
 
 ### define DataSet for one video (to be iterated on all videos)
@@ -21,7 +78,7 @@ import soundfile
 class AudioToEmbeddings(torch.utils.data.Dataset):
     """Face Landmarks dataset."""
 
-    def __init__(self, videofile,samplerate = 12000):
+    def __init__(self, videofile,samplerate = 12000,fmripath=None):
         """
         Args:
             videofile (string): Path to the mkv file of a video.
@@ -60,6 +117,14 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
 
             wav,_ = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True)
             soundfile.write(self.wavfile,wav,self.sample_rate)
+
+        if fmripath is not None:
+            print('Finding corresponding MRI file(s)...')
+            association = fetchMRI(videofile,fmripath)
+            ## Currently this will only fetch the second session of the film if there are two sessions
+            for _,item in association.items():
+
+                self.fmri = item[1]
 
     def __len__(self):
         return len(self.onsets)
@@ -157,7 +222,7 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
 trainsets = []
 testsets= []
 valsets = []
-
+""" 
 path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
 for root, dirs, files in os.walk(path, topdown=False):
    for name in files:
@@ -182,4 +247,4 @@ testset = torch.utils.data.ConcatDataset(testsets)
 
 trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
 valloader = DataLoader(valset,batch_size=64)
-testloader = DataLoader(testset,batch_size=64)
+testloader = DataLoader(testset,batch_size=64) """

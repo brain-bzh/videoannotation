@@ -273,7 +273,7 @@ for root, dirs, files in os.walk(path, topdown=False):
                total_len = (len(dataset))
                train_len = int(np.floor(0.8*total_len))
                val_len = int(np.floor(0.1*total_len))
-               test_len = int(np.floor(0.1*total_len))
+               test_len = int(np.floor(0.1*total_len)) - 1
                trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
                valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
                testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))

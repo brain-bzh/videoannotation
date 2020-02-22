@@ -145,6 +145,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
                     self.audioset_proba = self.audioset_proba[:min_len,:]
                     self.im_proba = self.im_proba[:min_len,:]
                     self.places_proba = self.places_proba[:min_len,:]
+                    self.onsets = self.onsets[:min_len]
                     
 
     def __len__(self):

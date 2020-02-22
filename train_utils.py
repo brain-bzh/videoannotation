@@ -96,6 +96,8 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         self.audioset_proba = np.load(self.npzfile)['audioset_proba']
         self.dur = np.load(self.npzfile)['dur']
         self.onsets = np.load(self.npzfile)['onsets']
+
+        
         
         #### Check if audio file exists
         if os.path.isfile(self.wavfile) is False:
@@ -118,13 +120,32 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
             wav,_ = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True)
             soundfile.write(self.wavfile,wav,self.sample_rate)
 
+        ### Load the fmri data, if provided the path
+        
+        self.fmrifile = None
+
         if fmripath is not None:
             print('Finding corresponding MRI file(s)...')
             association = fetchMRI(videofile,fmripath)
             ## Currently this will only fetch the second session of the film if there are two sessions
             for _,item in association.items():
 
-                self.fmri = item[1]
+                self.fmrifile = os.path.join(fmripath,item[1])
+
+                ### load npz file 
+                self.fmri = np.load(self.fmrifile)['X']
+
+                ### Check shape relative to other data types
+
+                if self.fmri.shape[0] != self.audioset_proba.shape[0]:
+                    print("reshaping fmri and other data to minimum length of both")
+
+                    min_len = min(self.fmri.shape[0],self.audioset_proba.shape[0])
+                    self.fmri = self.fmri[:min_len,:]
+                    self.audioset_proba = self.audioset_proba[:min_len,:]
+                    self.im_proba = self.im_proba[:min_len,:]
+                    self.places_proba = self.places_proba[:min_len,:]
+                    
 
     def __len__(self):
         return len(self.onsets)
@@ -140,6 +161,9 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
 
         sample = {'waveform':(waveform),'places':(self.places_proba[idx]),
             'audioset':(self.audioset_proba[idx]),'imagenet':(self.im_proba[idx])}
+
+        if self.fmrifile is not None:
+            sample['fmri'] = self.fmri[idx]
 
         
         return (sample)

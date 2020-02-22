@@ -133,7 +133,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
                 self.fmrifile = os.path.join(fmripath,item[1])
 
                 ### load npz file 
-                self.fmri = np.load(self.fmrifile)['X']
+                self.fmri = torch.FloatTensor(np.load(self.fmrifile)['X'])
 
                 ### Check shape relative to other data types
 
@@ -169,7 +169,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         return (sample)
 
 
-def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places):
+def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None):
 
     running_loss = 0
     net.train()
@@ -189,16 +189,20 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places):
         imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
 
         # Forward pass
-        obj_p,scene_p,audio_p = net(wav)
+        obj_p,scene_p,audio_p,fmri_p = net(wav)
 
         # Calculate loss
-
+        
         loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
         loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
         loss_places = kl_places(F.log_softmax(scene_p,1),places)
         
-        loss = loss_audioset + loss_imagenet + loss_places
-
+        if mseloss is not None:
+            fmri = onesample['fmri'].cuda()
+            loss_fmri=mseloss(fmri_p,fmri)
+            loss = loss_audioset + loss_imagenet + loss_places + loss_fmri
+        else:
+            loss = loss_audioset + loss_imagenet + loss_places
 
         loss.backward()
         
@@ -210,7 +214,7 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places):
     return running_loss/batch_idx
 
 
-def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
+def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None):
 
     running_loss = 0
     net.eval()
@@ -226,7 +230,7 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
             imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
 
             # Forward pass
-            obj_p,scene_p,audio_p = net(wav)
+            obj_p,scene_p,audio_p,fmri_p = net(wav)
 
             # Calculate loss
             
@@ -234,7 +238,14 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
             loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
             loss_places = kl_places(F.log_softmax(scene_p,1),places)
         
-            loss = loss_audioset + loss_imagenet + loss_places
+            
+            if mseloss is not None:
+                fmri = onesample['fmri'].cuda()
+                
+                loss_fmri=mseloss(fmri_p,fmri)
+                loss = loss_audioset + loss_imagenet + loss_places + loss_fmri
+            else:
+                loss = loss_audioset + loss_imagenet + loss_places
 
             running_loss += loss.item()
             
@@ -246,23 +257,35 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places):
 trainsets = []
 testsets= []
 valsets = []
-""" 
-path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
+
+path = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/'
+
+fmripath = '/home/nfarrugi/movie10_parc/sub-01'
 for root, dirs, files in os.walk(path, topdown=False):
    for name in files:
        if name[-3:] == 'mkv':
            currentvid = os.path.join(root, name)
-           print(currentvid)
-           dataset = AudioToEmbeddings(currentvid)
+           #print(currentvid)
+           try:
+               dataset = AudioToEmbeddings(currentvid,fmripath=fmripath)
+               total_len = (len(dataset))
+               train_len = int(np.floor(0.8*total_len))
+               val_len = int(np.floor(0.1*total_len))
+               test_len = int(np.floor(0.1*total_len))
+               trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
+               valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
+               testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
 
-           total_len = (len(dataset))
-           train_len = int(np.floor(0.8*total_len))
-           val_len = int(np.floor(0.1*total_len))
-           test_len = int(np.floor(0.1*total_len))
+           except FileNotFoundError as expr:
+               print("Issue with file {}".format(currentvid))
+               print(expr)
+           
+           
+           
+            
 
-           trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
-           valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
-           testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
+        
+                
 
 
 trainset = torch.utils.data.ConcatDataset(trainsets)
@@ -271,4 +294,4 @@ testset = torch.utils.data.ConcatDataset(testsets)
 
 trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
 valloader = DataLoader(valset,batch_size=64)
-testloader = DataLoader(testset,batch_size=64) """
+testloader = DataLoader(testset,batch_size=64) 

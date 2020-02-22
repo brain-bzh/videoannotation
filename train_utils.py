@@ -148,7 +148,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
                     
 
     def __len__(self):
-        return len(self.onsets)
+        return (self.fmri.shape[0])
 
     def __getitem__(self, idx):
         try:

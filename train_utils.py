@@ -170,7 +170,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         return (sample)
 
 
-def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None):
+def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1):
 
     running_loss = 0
     net.train()
@@ -201,9 +201,9 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         if mseloss is not None:
             fmri = onesample['fmri'].cuda()
             loss_fmri=mseloss(fmri_p,fmri)
-            loss = loss_audioset + loss_imagenet + loss_places + loss_fmri
+            loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
         else:
-            loss = loss_audioset + loss_imagenet + loss_places
+            loss = alpha*loss_audioset + alpha*loss_imagenet + alpha*loss_places
 
         loss.backward()
         
@@ -215,7 +215,7 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
     return running_loss/batch_idx
 
 
-def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None):
+def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1):
 
     running_loss = 0
     net.eval()
@@ -244,9 +244,9 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
                 fmri = onesample['fmri'].cuda()
                 
                 loss_fmri=mseloss(fmri_p,fmri)
-                loss = loss_audioset + loss_imagenet + loss_places + loss_fmri
+                loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
             else:
-                loss = loss_audioset + loss_imagenet + loss_places
+                loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places
 
             running_loss += loss.item()
             

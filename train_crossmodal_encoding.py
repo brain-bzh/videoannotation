@@ -23,23 +23,22 @@ from nilearn.plotting import plot_stat_map
 
 from nilearn.regions import signals_to_img_labels
 
-mistroifile = '/home/brain/MIST_ROI.nii.gz'
+from eval_utils import test_kl_r2
+
+mistroifile = '/home/brain/home_telecom/MIST_ROI.nii.gz'
 
 alpha = 0
 beta = 1
 gamma = 1
 delta = 1
 
-destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
-
 for alpha in [1e-6,1]:
-    for beta in [1,1e-6]:
-        for gamma in [1,1e-6]:
-            for delta in [1,1e-6]:
-        
-                for ninputfilters in [1,2,4]:
+    for beta in [1,1e-3,1e-6]:
+        for gamma in [1,1e-3,1e-6]:
+            for delta in [1,1e-3,1e-4]:
+                for ninputfilters in [2,4,8]:
                     for nfeat in [ninputfilters,2*ninputfilters]:
-
+                        destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
                         ### Model Setup
                         net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
                         net = net.cuda()

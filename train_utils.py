@@ -203,7 +203,7 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
             loss_fmri=mseloss(fmri_p,fmri)
             loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
         else:
-            loss = alpha*loss_audioset + alpha*loss_imagenet + alpha*loss_places
+            loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places
 
         loss.backward()
         

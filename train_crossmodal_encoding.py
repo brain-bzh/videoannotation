@@ -33,9 +33,13 @@ gamma = 1
 delta = 1
 
 for alpha in [1e-6,1]:
-    for beta in [1,1e-3,1e-6]:
-        for gamma in [1,1e-3,1e-6]:
-            for delta in [1,1e-3,1e-4]:
+    for beta in [1,1e-1,1e-6]:
+        for gamma in [1,1e-1,1e-6]:
+            for delta in [1,1e-1,1e-6]:
+                if ((alpha + beta + gamma + delta) < 0.9 ):                    
+                    continue
+                     
+                
                 for ninputfilters in [2,4,8]:
                     for nfeat in [ninputfilters,2*ninputfilters]:
                         destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
@@ -48,7 +52,7 @@ for alpha in [1e-6,1]:
                         mseloss = nn.MSELoss(reduction='mean')
 
                         ### Optimizer and Schedulers
-                        optimizer = torch.optim.SGD(net.parameters(),lr=0.001)
+                        optimizer = torch.optim.SGD(net.parameters(),lr=0.01,momentum=0.9)
                         lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
                         #optimizer = torch.optim.Adam(net.parameters())
 

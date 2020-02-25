@@ -13,6 +13,9 @@ __pycache__/
 
 *.png
 
+## NIFTI
+*.nii.gz
+
 # Distribution / packaging
 .Python
 build/

@@ -39,13 +39,13 @@ def test_kl_r2(testloader,net,kl_im,kl_audio,kl_places,mseloss):
 
             wav = wav.view(bsize,1,-1,1)
 
-            fmri = onesample['fmri'].cuda()
+            fmri = onesample['fmri'].view(bsize,1,-1).cuda()
 
             # Forward pass
             _,_,_,fmri_p = net(wav)
-
-            all_fmri.append(fmri.cpu().numpy())
-            all_fmri_p.append(fmri_p.cpu().numpy())
+            
+            all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
             
 
 

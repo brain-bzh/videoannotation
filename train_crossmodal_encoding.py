@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import WaveformCNN
+from soundnet_model import WaveformCNN8, WaveformCNN5
 from train_utils import train_kl,test_kl,AudioToEmbeddings,trainloader,valloader,testloader
 from pytorchtools import EarlyStopping
 from datetime import datetime
@@ -37,9 +37,9 @@ for alpha in [1e-6,1]:
                 
                 for ninputfilters in [2,4,8]:
                     for nfeat in [ninputfilters,2*ninputfilters]:
-                        destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
+                        destdir = 'cp_S5_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
                         ### Model Setup
-                        net = WaveformCNN(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
+                        net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
                         net = net.cuda()
                         kl_im = nn.KLDivLoss(reduction='batchmean')
                         kl_audio = nn.KLDivLoss(reduction='batchmean')
@@ -47,12 +47,12 @@ for alpha in [1e-6,1]:
                         mseloss = nn.MSELoss(reduction='mean')
 
                         ### Optimizer and Schedulers
-                        optimizer = torch.optim.SGD(net.parameters(),lr=0.01,momentum=0.9)
-                        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4)
+                        optimizer = torch.optim.SGD(net.parameters(),lr=0.001,momentum=0.9)
+                        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4,cooldown=3)
                         #optimizer = torch.optim.Adam(net.parameters())
 
                         # initialize the early_stopping object
-                        early_stopping = EarlyStopping(patience=8, verbose=True)
+                        early_stopping = EarlyStopping(patience=10, verbose=True)
                         nbepoch = 5000
 
                         #### Simple test just to check the shapes

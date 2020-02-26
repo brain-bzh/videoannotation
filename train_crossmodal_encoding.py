@@ -27,7 +27,7 @@ from eval_utils import test_kl_r2
 
 mistroifile = '/home/brain/home_telecom/MIST_ROI.nii.gz'
 
-for alpha in [1e-6,1]:
+for alpha in [1,1e-6]:
     for beta in [1,1e-1,1e-6]:
         for gamma in [1,1e-1,1e-6]:
             for delta in [1e-6,1e-1,1]:

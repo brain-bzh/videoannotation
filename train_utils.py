@@ -183,23 +183,35 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
 
         
 
-        # load data
+        # For fake 2D output
+        #wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+        #places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
+        #audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
+        #imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+
+        # for 1D output
         wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-        places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
-        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
-        imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+        places = torch.Tensor(onesample['places']).view(bsize,-1).cuda()
+        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1).cuda()
+        imnet = torch.Tensor(onesample['imagenet']).view(bsize,1,-1).cuda()
 
         # Forward pass
         obj_p,scene_p,audio_p,fmri_p = net(wav)
 
         # Calculate loss
         
-        loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
-        loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
-        loss_places = kl_places(F.log_softmax(scene_p,1),places)
+        # For fake 2D output
+        #loss_imagenet = kl_im(F.log_softmax(obj_p,2),imnet)
+        #loss_audioset = kl_audio(F.log_softmax(audio_p,2),audioset)
+        #loss_places = kl_places(F.log_softmax(scene_p,2),places)
+
+        # For 1D output
+        loss_imagenet = kl_im(F.log_softmax(obj_p,2),imnet)
+        loss_audioset = kl_audio(F.log_softmax(audio_p,2),audioset)
+        loss_places = kl_places(F.log_softmax(scene_p,2),places)
         
         if mseloss is not None:
-            fmri = onesample['fmri'].cuda()
+            fmri = onesample['fmri'].view(bsize,1,-1).cuda()
             loss_fmri=mseloss(fmri_p,fmri)
             loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
         else:
@@ -226,23 +238,29 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
 
             # load data
             wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-            places = torch.Tensor(onesample['places']).view(bsize,-1,1,1).cuda()
-            audioset = torch.Tensor(onesample['audioset']).view(bsize,-1,1,1).cuda()
-            imnet = torch.Tensor(onesample['imagenet']).view(bsize,-1,1,1).cuda()
+            places = torch.Tensor(onesample['places']).view(bsize,-1).cuda()
+            audioset = torch.Tensor(onesample['audioset']).view(bsize,-1).cuda()
+            imnet = torch.Tensor(onesample['imagenet']).view(bsize,1,-1).cuda()
 
             # Forward pass
             obj_p,scene_p,audio_p,fmri_p = net(wav)
 
             # Calculate loss
+        
+            # For fake 2D output
+            #loss_imagenet = kl_im(F.log_softmax(obj_p,2),imnet)
+            #loss_audioset = kl_audio(F.log_softmax(audio_p,2),audioset)
+            #loss_places = kl_places(F.log_softmax(scene_p,2),places)
+
+            # For 1D output
+            loss_imagenet = kl_im(F.log_softmax(obj_p,2),imnet)
+            loss_audioset = kl_audio(F.log_softmax(audio_p,2),audioset)
+            loss_places = kl_places(F.log_softmax(scene_p,2),places)
             
-            loss_imagenet = kl_im(F.log_softmax(obj_p,1),imnet)
-            loss_audioset = kl_audio(F.log_softmax(audio_p,1),audioset)
-            loss_places = kl_places(F.log_softmax(scene_p,1),places)
         
             
             if mseloss is not None:
-                fmri = onesample['fmri'].cuda()
-                
+                fmri = onesample['fmri'].view(bsize,1,-1).cuda()
                 loss_fmri=mseloss(fmri_p,fmri)
                 loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
             else:

@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import WaveformCNN
 from train_utils import testset
 from pytorchtools import EarlyStopping
 from datetime import datetime
@@ -69,8 +68,11 @@ plt.plot(modeldict['val_loss'])
 plt.legend(['Train','Test'])
 plt.title("Mean $R^2=${}, Max $R^2=${}".format(r2model.mean(),r2model.max()))
 
+
+mistroifile = '/home/brain/home_telecom/MIST_ROI.nii.gz'
+
 ### R2 figure 
-r2_img = signals_to_img_labels(r2model.reshape(1,-1),'/home/nfarrugi/git/MIST_parcellation/MIST_parcellation/Parcellations/MIST_ROI.nii.gz')
+r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
 
 ax = plt.subplot(2,1,1)
 
@@ -78,4 +80,4 @@ plot_stat_map(r2_img,display_mode='z',cut_coords=8,figure=f,axes=ax)
 
 r2_img.to_filename('r2_img.nii.gz')
 f.savefig('test.png')
-plt.close()
+plt.show()

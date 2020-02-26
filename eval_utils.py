@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import WaveformCNN
 from train_utils import testset
 from pytorchtools import EarlyStopping
 from datetime import datetime

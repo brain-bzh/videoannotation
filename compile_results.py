@@ -42,11 +42,11 @@ for root, dirs, files in os.walk(path, topdown=False):
                doct = currentdict.split("/")[-2]
                values = doct.split("_")
 
-               my_dict = dict(test_loss=old_dict["test_loss"],filename=currentdict)
-               my_dict["alpha"] = values[2]
-               my_dict["beta"] = values[3]
-               my_dict["gamma"] = values[4]
-               my_dict["delta"] = values[5]
+               my_dict = dict(test_loss=old_dict["test_loss"],filename=currentdict,nfeat=old_dict['nfeat'],ninputfilters=old_dict['ninputfilters'])
+               my_dict["alpha"] = np.log10(float(values[2]))
+               my_dict["beta"] = np.log10(float(values[3]))
+               my_dict["gamma"] = np.log10(float(values[4]))
+               my_dict["delta"] = np.log10(float(values[5]))
 
                all_files.append(my_dict)
                all_test_loss.append(test_loss)

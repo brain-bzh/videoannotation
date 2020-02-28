@@ -35,8 +35,8 @@ for root, dirs, files in os.walk(path, topdown=False):
            try:
                test_loss=torch.load(currentdict)['test_loss']
                print(test_loss)
-           except expression as identifier:
-               pass
+           except:
+               print('Error')
 
            
 

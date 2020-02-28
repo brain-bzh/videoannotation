@@ -37,7 +37,7 @@ for ninputfilters in [2,4,8,16,32]:
                      
                 
                 
-                        destdir = 'cp_S5_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
+                        destdir = 'cp_S5_2_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
                         ### Model Setup
                         net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
                         net = net.cuda()
@@ -53,7 +53,7 @@ for ninputfilters in [2,4,8,16,32]:
 
                         # initialize the early_stopping object
                         early_stopping = EarlyStopping(patience=10, verbose=True)
-                        nbepoch = 50
+                        nbepoch = 5000
 
                         #### Simple test just to check the shapes
 
@@ -106,31 +106,17 @@ for ninputfilters in [2,4,8,16,32]:
                         ## Reload best model 
                         net.load_state_dict(torch.load('checkpoint.pt'))
 
-                        ## Prepare data structure for checkpoint
-                        state = {
-                                    'net': net.state_dict(),
-                                    'epoch': epoch,
-                                    'train_loss' : train_loss,
-                                    'val_loss' : val_loss,
-                                    'test_loss' : test_loss,
-                                    'nfeat' : nfeat,
-                                    'ninputfilters' : ninputfilters,
-                                    'model' : net
-                                }
-
-                        if not os.path.isdir(destdir):
-                            os.mkdir(destdir)
+                        
 
                         dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
                         str_bestmodel = os.path.join(destdir,"{}.pt".format(dt_string))
                         str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}.png".format(dt_string,ninputfilters,nfeat))
                         str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}.nii.gz".format(dt_string,ninputfilters,nfeat))
-
-
-                        torch.save(state, str_bestmodel)
+                        
+                        
 
                         # Remove temp file 
-                        #os.remove('checkpoint.pt')
+                        os.remove('checkpoint.pt')
 
                         r2model = test_kl_r2(testloader,net,kl_im,kl_audio,kl_places,mseloss=mseloss)
                         r2model[r2model<0] = 0
@@ -157,3 +143,24 @@ for ninputfilters in [2,4,8,16,32]:
                         f.savefig(str_bestmodel_plot)
                         r2_img.to_filename(str_bestmodel_nii)
                         plt.close()
+
+
+                        ## Prepare data structure for checkpoint
+                        state = {
+                                    'net': net.state_dict(),
+                                    'epoch': epoch,
+                                    'train_loss' : train_loss,
+                                    'val_loss' : val_loss,
+                                    'test_loss' : test_loss,
+                                    'r2' : r2model,
+                                    'r2max' : r2model.max(),
+                                    'r2mean' : r2model.mean(),
+                                    'nfeat' : nfeat,
+                                    'ninputfilters' : ninputfilters,
+                                    'model' : net
+                                }
+
+                        if not os.path.isdir(destdir):
+                            os.mkdir(destdir)
+
+                        torch.save(state, str_bestmodel)

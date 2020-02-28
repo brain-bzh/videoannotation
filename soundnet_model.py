@@ -115,24 +115,24 @@ class WaveformCNN5(nn.Module):
         #The hyperparameters of this network have been set for 12 kHz, 1.49 second long waveforms. 
 
         self.conv1 = nn.Sequential(
-            nn.Conv2d(1,self.ninputfilters, (256,1), (2,1), (64,0), bias=True),
+            nn.Conv2d(1,self.ninputfilters, (32,1), (4,1), (32,0), bias=True),
             nn.BatchNorm2d(self.ninputfilters),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1), (2,1))
         )
         self.conv2 = nn.Sequential(
-            nn.Conv2d(self.ninputfilters, 32*self.nfeat, (128,1), (2,1), (16,0), bias=True),
+            nn.Conv2d(self.ninputfilters, 32*self.nfeat, (16,1), (4,1), (16,0), bias=True),
             nn.BatchNorm2d(32*self.nfeat),
             nn.ReLU(inplace=True),
             nn.MaxPool2d((2,1),(2,1))
         )
         self.conv3 = nn.Sequential(
-            nn.Conv2d(32*self.nfeat, 64*self.nfeat, (64,1), (2,1), (8,0), bias=True),
+            nn.Conv2d(32*self.nfeat, 64*self.nfeat, (8,1), (2,1), (8,0), bias=True),
             nn.BatchNorm2d(64*self.nfeat),
             nn.ReLU(inplace=True)
         )
         self.conv4 = nn.Sequential(
-            nn.Conv2d(64*self.nfeat, 128*self.nfeat, (32,1), (4,1), bias=True),
+            nn.Conv2d(64*self.nfeat, 128*self.nfeat, (4,1), (4,1), (4,0), bias=True),
             nn.BatchNorm2d(128*self.nfeat),
             nn.ReLU(inplace=True)
         )
@@ -150,7 +150,7 @@ class WaveformCNN5(nn.Module):
         )
         if self.do_encoding_fmri:
             self.encoding_fmri = nn.Sequential(
-                nn.Linear(128*self.nfeat,self.fmrihidden,(10,1)),
+                nn.Linear(128*self.nfeat,self.fmrihidden),
                 nn.ReLU(inplace=True)
             )
             self.outputroi = nn.Linear(self.fmrihidden,self.nroi)

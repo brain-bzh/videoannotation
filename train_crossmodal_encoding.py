@@ -26,17 +26,17 @@ from nilearn.regions import signals_to_img_labels
 from eval_utils import test_kl_r2
 
 mistroifile = '/home/brain/home_telecom/MIST_ROI.nii.gz'
-
-for alpha in [1,1e-6]:
-    for beta in [1,1e-1,1e-6]:
-        for gamma in [1,1e-1,1e-6]:
-            for delta in [1e-6,1e-1,1]:
-                if ((alpha + beta + gamma + delta) < 0.9 ):                    
-                    continue
+for ninputfilters in [2,4,8,16,32]:
+    for nfeat in [ninputfilters,2*ninputfilters]:
+        for alpha in [1,1e-6]:
+            for beta in [1,1e-1,1e-6]:
+                for gamma in [1,1e-1,1e-6]:
+                    for delta in [1,1e-1,1e-3,1e-6]:
+                        if ((alpha + beta + gamma + delta) < 0.9 ):                    
+                            continue
                      
                 
-                for ninputfilters in [2,4,8]:
-                    for nfeat in [ninputfilters,2*ninputfilters]:
+                
                         destdir = 'cp_S5_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
                         ### Model Setup
                         net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
@@ -48,16 +48,16 @@ for alpha in [1,1e-6]:
 
                         ### Optimizer and Schedulers
                         optimizer = torch.optim.SGD(net.parameters(),lr=0.001,momentum=0.9)
-                        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=4,threshold=1e-4,cooldown=3)
-                        #optimizer = torch.optim.Adam(net.parameters())
+                        lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=6,threshold=1e-4,cooldown=2)
+                        #optimizer = torch.optim.Adam(net.parameters(),weight_decay=0.08)
 
                         # initialize the early_stopping object
                         early_stopping = EarlyStopping(patience=10, verbose=True)
-                        nbepoch = 5000
+                        nbepoch = 50
 
                         #### Simple test just to check the shapes
 
-                        if True:
+                        if False:
                             from train_utils import dataset
 
                             with torch.no_grad():
@@ -87,7 +87,7 @@ for alpha in [1,1e-6]:
                         for epoch in tqdm(range(nbepoch)):
                             train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
                             val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
-                            #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
+                            print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
                             lr_sched.step(val_loss[-1])
 
                             # early_stopping needs the validation loss to check if it has decresed, 
@@ -130,7 +130,7 @@ for alpha in [1,1e-6]:
                         torch.save(state, str_bestmodel)
 
                         # Remove temp file 
-                        os.remove('checkpoint.pt')
+                        #os.remove('checkpoint.pt')
 
                         r2model = test_kl_r2(testloader,net,kl_im,kl_audio,kl_places,mseloss=mseloss)
                         r2model[r2model<0] = 0
@@ -145,7 +145,7 @@ for alpha in [1,1e-6]:
 
                         plt.plot(state['train_loss'])
                         plt.plot(state['val_loss'])
-                        plt.legend(['Train','Test'])
+                        plt.legend(['Train','Val'])
                         plt.title("Mean $R^2=${}, Max $R^2=${}".format(r2model.mean(),r2model.max()))
 
                         ### R2 figure 

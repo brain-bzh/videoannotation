@@ -191,8 +191,8 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
 
         # for 1D output
         wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-        places = torch.Tensor(onesample['places']).view(bsize,-1).cuda()
-        audioset = torch.Tensor(onesample['audioset']).view(bsize,-1).cuda()
+        places = torch.Tensor(onesample['places']).view(bsize,1,-1).cuda()
+        audioset = torch.Tensor(onesample['audioset']).view(bsize,1,-1).cuda()
         imnet = torch.Tensor(onesample['imagenet']).view(bsize,1,-1).cuda()
 
         # Forward pass
@@ -238,8 +238,8 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
 
             # load data
             wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-            places = torch.Tensor(onesample['places']).view(bsize,-1).cuda()
-            audioset = torch.Tensor(onesample['audioset']).view(bsize,-1).cuda()
+            places = torch.Tensor(onesample['places']).view(bsize,1,-1).cuda()
+            audioset = torch.Tensor(onesample['audioset']).view(bsize,1,-1).cuda()
             imnet = torch.Tensor(onesample['imagenet']).view(bsize,1,-1).cuda()
 
             # Forward pass

@@ -32,7 +32,11 @@ for root, dirs, files in os.walk(path, topdown=False):
        if name[-2:] == 'pt':
            currentdict = os.path.join(root, name)
            print(currentdict)
+           try:
+               test_loss=torch.load(currentdict)['test_loss']
+               print(test_loss)
+           except expression as identifier:
+               pass
 
-           test_loss=torch.load(currentdict)['test_loss']
-           print(test_loss)
+           
 

@@ -42,19 +42,19 @@ for root, dirs, files in os.walk(path, topdown=False):
                doct = currentdict.split("/")[-2]
                values = doct.split("_")
 
-               my_dict = dict(test_loss=old_dict["test_loss"],filename=currentdict,nfeat=old_dict['nfeat'],ninputfilters=old_dict['ninputfilters'])
-               my_dict["alpha"] = np.log10(float(values[2]))
-               my_dict["beta"] = np.log10(float(values[3]))
-               my_dict["gamma"] = np.log10(float(values[4]))
-               my_dict["delta"] = np.log10(float(values[5]))
+               my_dict = dict(test_loss=old_dict["test_loss"],filename=currentdict,nfeat=old_dict['nfeat'],r2mean=old_dict['r2mean'],r2max=old_dict['r2max'],ninputfilters=old_dict['ninputfilters'])
+               my_dict["alpha"] = np.log10(float(values[3]))
+               my_dict["beta"] = np.log10(float(values[4]))
+               my_dict["gamma"] = np.log10(float(values[5]))
+               my_dict["delta"] = np.log10(float(values[6]))
 
                all_files.append(my_dict)
                all_test_loss.append(test_loss)
            except:
                print('Error for {}'.format(currentdict))
 df = pd.DataFrame(all_files)
-print(df.sort_values("test_loss"))
-df.sort_values("test_loss").to_csv("test.csv")
+print(df.sort_values("r2max"))
+df.sort_values("r2max").to_csv("test.csv")
 """
 all_test_loss = np.stack(all_test_loss)
 

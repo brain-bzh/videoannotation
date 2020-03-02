@@ -25,7 +25,7 @@ from nilearn.regions import signals_to_img_labels
 
 from eval_utils import test_kl_r2
 
-mistroifile = '/home/brain/home_telecom/MIST_ROI.nii.gz'
+mistroifile = '/home/brain/MIST_ROI.nii.gz'
 for ninputfilters in [2,4,8,16,32]:
     for nfeat in [ninputfilters,2*ninputfilters]:
         for alpha in [1,1e-6]:
@@ -87,7 +87,7 @@ for ninputfilters in [2,4,8,16,32]:
                         for epoch in tqdm(range(nbepoch)):
                             train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
                             val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
-                            print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
+                            #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
                             lr_sched.step(val_loss[-1])
 
                             # early_stopping needs the validation loss to check if it has decresed, 
@@ -99,9 +99,12 @@ for ninputfilters in [2,4,8,16,32]:
                                 break
 
                         test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta)
-                        print("Test Loss : {}".format(test_loss))
+                        #print("Test Loss : {}".format(test_loss))
 
                         enddate = datetime.now()
+
+                        if not os.path.isdir(destdir):
+                            os.mkdir(destdir)
 
                         ## Reload best model 
                         net.load_state_dict(torch.load('checkpoint.pt'))
@@ -124,6 +127,25 @@ for ninputfilters in [2,4,8,16,32]:
 
                         print("max R2 score on test set  : {}".format(r2model.max()))
 
+                        print("Training time : {}".format(enddate - startdate))
+
+                        ## Prepare data structure for checkpoint
+                        state = {
+                                    'net': net.state_dict(),
+                                    'epoch': epoch,
+                                    'train_loss' : train_loss,
+                                    'val_loss' : val_loss,
+                                    'test_loss' : test_loss,
+                                    'r2' : r2model,
+                                    'r2max' : r2model.max(),
+                                    'r2mean' : r2model.mean(),
+                                    'nfeat' : nfeat,
+                                    'training_time' : enddate - startdate,
+                                    'ninputfilters' : ninputfilters,
+                                    'model' : net
+                                }
+
+
                         ### Plot the loss figure
                         f = plt.figure(figsize=(20,10))
 
@@ -145,22 +167,7 @@ for ninputfilters in [2,4,8,16,32]:
                         plt.close()
 
 
-                        ## Prepare data structure for checkpoint
-                        state = {
-                                    'net': net.state_dict(),
-                                    'epoch': epoch,
-                                    'train_loss' : train_loss,
-                                    'val_loss' : val_loss,
-                                    'test_loss' : test_loss,
-                                    'r2' : r2model,
-                                    'r2max' : r2model.max(),
-                                    'r2mean' : r2model.mean(),
-                                    'nfeat' : nfeat,
-                                    'ninputfilters' : ninputfilters,
-                                    'model' : net
-                                }
+                        
 
-                        if not os.path.isdir(destdir):
-                            os.mkdir(destdir)
 
                         torch.save(state, str_bestmodel)

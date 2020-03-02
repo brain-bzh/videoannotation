@@ -41,12 +41,13 @@ mistroifile = '/home/brain/MIST_ROI.nii.gz'
 
 
 parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
-parser.add_argument('--lr', default=0.01, type=float, help='learning rate')
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
+parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
 parser.add_argument('--alpha', default=1.0, type=float, help='alpha : penalty for Audioset Probas (KLdiv)')
 parser.add_argument('--beta', default=1.0, type=float, help='beta : penalty for ImageNet Probas (KLdiv)')
 parser.add_argument('--gamma', default=1.0, type=float, help='gamma : penalty for Places Probas (KLdiv)')
 parser.add_argument('--ninputfilters', default=16, type=int, help='number of features map in conv1')
-parser.add_argument('--expansion', default=2, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
+parser.add_argument('--expansion', default=1, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
 
 args = parser.parse_args()
 
@@ -58,7 +59,7 @@ ninputfilters = args.ninputfilters
 nfeat = args.expansion
 
 
-destdir = 'cp_S5_2_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
+destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
 ### Model Setup
 net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
 net = net.cuda()
@@ -68,13 +69,11 @@ kl_places = nn.KLDivLoss(reduction='batchmean')
 mseloss = nn.MSELoss(reduction='mean')
 
 ### Optimizer and Schedulers
-optimizer = torch.optim.SGD(net.parameters(),lr=0.001,momentum=0.9)
+optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
 lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=6,threshold=1e-4,cooldown=2)
-#optimizer = torch.optim.Adam(net.parameters(),weight_decay=0.08)
 
-# initialize the early_stopping object
 early_stopping = EarlyStopping(patience=10, verbose=True)
-nbepoch = 5000
+nbepoch = args.epochs
 
 #### Simple test just to check the shapes
 

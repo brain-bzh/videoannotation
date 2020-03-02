@@ -46,8 +46,11 @@ parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of 
 parser.add_argument('--alpha', default=1.0, type=float, help='alpha : penalty for Audioset Probas (KLdiv)')
 parser.add_argument('--beta', default=1.0, type=float, help='beta : penalty for ImageNet Probas (KLdiv)')
 parser.add_argument('--gamma', default=1.0, type=float, help='gamma : penalty for Places Probas (KLdiv)')
+parser.add_argument('--delta', default=1.0, type=float, help='delta : penalty for fmri encoding model (MSE)')
 parser.add_argument('--ninputfilters', default=16, type=int, help='number of features map in conv1')
 parser.add_argument('--expansion', default=1, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
+parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
+parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 
 args = parser.parse_args()
 
@@ -57,11 +60,22 @@ gamma = args.gamma
 delta = args.delta
 ninputfilters = args.ninputfilters
 nfeat = args.expansion
+fmrihidden = args.hidden
 
-
+print(args)
 destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
 ### Model Setup
-net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True)
+if args.resume is not None:
+    print("Reloading model {}".format(args.resume))
+    old_dict = torch.load(args.resume)
+    net = old_dict['model']
+    net.load_state_dict(old_dict['net'])
+    nfeat = old_dict['nfeat']
+    ninputfilters = old_dict['ninputfilters']
+else:
+    print("Training from scratch")
+    net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True,fmrihidden=fmrihidden)
+
 net = net.cuda()
 kl_im = nn.KLDivLoss(reduction='batchmean')
 kl_audio = nn.KLDivLoss(reduction='batchmean')
@@ -70,9 +84,9 @@ mseloss = nn.MSELoss(reduction='mean')
 
 ### Optimizer and Schedulers
 optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=6,threshold=1e-4,cooldown=2)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-4,cooldown=2)
 
-early_stopping = EarlyStopping(patience=10, verbose=True)
+early_stopping = EarlyStopping(patience=15, verbose=True)
 nbepoch = args.epochs
 
 #### Simple test just to check the shapes

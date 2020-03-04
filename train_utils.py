@@ -170,7 +170,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         return (sample)
 
 
-def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1):
+def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
 
     running_loss = 0
     net.train()
@@ -212,8 +212,26 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         
         if mseloss is not None:
             fmri = onesample['fmri'].view(bsize,1,-1).cuda()
-            loss_fmri=mseloss(fmri_p,fmri)
-            loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
+
+
+            if net.maskattention is not None:
+                #l'appliquer en matmul sur l'output mais aussi sur le target
+
+                masked_output = torch.matmul(fmri_p,net.maskattention)
+                masked_target = torch.matmul(fmri,net.maskattention)
+
+                print(masked_output.shape)
+                #et faire la mse sur les 3 sorties obtenues
+
+                lossattention = mseloss(masked_output,masked_target)
+
+                #et rajouter la loss torch.norm(torch.matmul(params.transpose(0,1),params) - torch.eye(3,3))
+                lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]))
+
+                loss_fmri= delta*lossattention + epsilon*lossortho
+            else:
+                loss_fmri=delta*mseloss(fmri_p,fmri)
+            loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + loss_fmri
         else:
             loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places
 

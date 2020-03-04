@@ -116,7 +116,7 @@ class WaveformCNN5(nn.Module):
         self.define_module()
         ### Define Output attention selection parameter
         if nroi_attention is not None:
-            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
+            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention)).cuda()
         else:
             self.maskattention = None
         

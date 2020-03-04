@@ -215,18 +215,14 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
 
 
             if net.maskattention is not None:
-                #l'appliquer en matmul sur l'output mais aussi sur le target
-
+                
+            
                 masked_output = torch.matmul(fmri_p,net.maskattention)
                 masked_target = torch.matmul(fmri,net.maskattention)
 
-                print(masked_output.shape)
-                #et faire la mse sur les 3 sorties obtenues
-
                 lossattention = mseloss(masked_output,masked_target)
 
-                #et rajouter la loss torch.norm(torch.matmul(params.transpose(0,1),params) - torch.eye(3,3))
-                lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]))
+                lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
 
                 loss_fmri= delta*lossattention + epsilon*lossortho
             else:
@@ -275,14 +271,28 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
             loss_audioset = kl_audio(F.log_softmax(audio_p,2),audioset)
             loss_places = kl_places(F.log_softmax(scene_p,2),places)
             
-        
-            
             if mseloss is not None:
                 fmri = onesample['fmri'].view(bsize,1,-1).cuda()
-                loss_fmri=mseloss(fmri_p,fmri)
-                loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + delta*loss_fmri
+
+
+                if net.maskattention is not None:
+                    
+                
+                    masked_output = torch.matmul(fmri_p,net.maskattention)
+                    masked_target = torch.matmul(fmri,net.maskattention)
+
+                    lossattention = mseloss(masked_output,masked_target)
+
+                    lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
+
+                    loss_fmri= delta*lossattention + epsilon*lossortho
+                else:
+                    loss_fmri=delta*mseloss(fmri_p,fmri)
+                loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places + loss_fmri
             else:
                 loss = alpha*loss_audioset + beta*loss_imagenet + gamma*loss_places
+        
+            
 
             running_loss += loss.item()
             

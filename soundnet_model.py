@@ -99,7 +99,7 @@ class WaveformCNN8(nn.Module):
 
 
 class WaveformCNN5(nn.Module):
-    def __init__(self,nfeat=16,ninputfilters=16,do_encoding_fmri=False,nroi=210,fmrihidden=1000):
+    def __init__(self,nfeat=16,ninputfilters=16,do_encoding_fmri=False,nroi=210,fmrihidden=1000,nroi_attention=None):
         super(WaveformCNN5, self).__init__()
 
         ## Hyper parameters of the main branch
@@ -114,6 +114,11 @@ class WaveformCNN5(nn.Module):
         ### Define all modules
 
         self.define_module()
+        ### Define Output attention selection parameter
+        if nroi_attention is not None:
+            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
+        else:
+            self.maskattention = None
         
         
     def define_module(self):

@@ -123,8 +123,8 @@ startdate = datetime.now()
 train_loss = []
 val_loss = []
 for epoch in tqdm(range(nbepoch)):
-    train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
-    val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta))
+    train_loss.append(train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta,epsilon=epsilon))
+    val_loss.append(test_kl(epoch,valloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta,epsilon=epsilon))
     #print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
     lr_sched.step(val_loss[-1])
 

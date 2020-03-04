@@ -47,9 +47,11 @@ parser.add_argument('--alpha', default=1.0, type=float, help='alpha : penalty fo
 parser.add_argument('--beta', default=1.0, type=float, help='beta : penalty for ImageNet Probas (KLdiv)')
 parser.add_argument('--gamma', default=1.0, type=float, help='gamma : penalty for Places Probas (KLdiv)')
 parser.add_argument('--delta', default=1.0, type=float, help='delta : penalty for fmri encoding model (MSE)')
+parser.add_argument('--epsilon', default=1.0, type=float, help='delta : penalty for attention output selection')
 parser.add_argument('--ninputfilters', default=16, type=int, help='number of features map in conv1')
 parser.add_argument('--expansion', default=1, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
 parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
+parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 
 args = parser.parse_args()
@@ -58,12 +60,14 @@ alpha = args.alpha
 beta = args.beta
 gamma = args.gamma
 delta = args.delta
+epsilon = args.epsilon
 ninputfilters = args.ninputfilters
 nfeat = args.expansion
+nroi_attention = args.nroi_attention
 fmrihidden = args.hidden
 
 print(args)
-destdir = 'cp_{}_{}_{}_{}'.format(alpha,beta,gamma,delta)
+destdir = 'cp_{}_{}_{}_{}_{}'.format(alpha,beta,gamma,delta,epsilon)
 ### Model Setup
 if args.resume is not None:
     print("Reloading model {}".format(args.resume))
@@ -74,7 +78,7 @@ if args.resume is not None:
     ninputfilters = old_dict['ninputfilters']
 else:
     print("Training from scratch")
-    net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True,fmrihidden=fmrihidden)
+    net = WaveformCNN5(nfeat=nfeat,ninputfilters=ninputfilters,do_encoding_fmri=True,fmrihidden=fmrihidden,nroi_attention=nroi_attention)
 
 net = net.cuda()
 kl_im = nn.KLDivLoss(reduction='batchmean')

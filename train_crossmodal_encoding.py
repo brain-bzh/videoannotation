@@ -15,12 +15,28 @@ import torch.nn.functional as F
 import librosa
 import soundfile
 from soundnet_model import WaveformCNN8, WaveformCNN5
-from train_utils import train_kl,test_kl,AudioToEmbeddings,trainloader,valloader,testloader
-from pytorchtools import EarlyStopping
-from datetime import datetime
 
 import argparse
 
+parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
+parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
+parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
+parser.add_argument('--alpha', default=1.0, type=float, help='alpha : penalty for Audioset Probas (KLdiv)')
+parser.add_argument('--beta', default=1.0, type=float, help='beta : penalty for ImageNet Probas (KLdiv)')
+parser.add_argument('--gamma', default=1.0, type=float, help='gamma : penalty for Places Probas (KLdiv)')
+parser.add_argument('--delta', default=1.0, type=float, help='delta : penalty for fmri encoding model (MSE)')
+parser.add_argument('--epsilon', default=1.0, type=float, help='epsilon : penalty for attention output selection')
+parser.add_argument('--ninputfilters', default=16, type=int, help='number of features map in conv1')
+parser.add_argument('--expansion', default=1, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
+parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
+parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
+parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
+
+args = parser.parse_args()
+
+from train_utils import train_kl,test_kl,AudioToEmbeddings,trainloader,valloader,testloader
+from pytorchtools import EarlyStopping
+from datetime import datetime
 
 from nilearn.plotting import plot_stat_map
 
@@ -40,23 +56,6 @@ mistroifile = '/home/brain/MIST_ROI.nii.gz'
 # ninputfilters : number of features map in conv1
 # nroi_attention : number of regions to learn using outputattention
 # nfeat : conv2 will be 32*nfeat features, conv3 64*nfeat, conv4 128*nfeat
-
-
-parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
-parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
-parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
-parser.add_argument('--alpha', default=1.0, type=float, help='alpha : penalty for Audioset Probas (KLdiv)')
-parser.add_argument('--beta', default=1.0, type=float, help='beta : penalty for ImageNet Probas (KLdiv)')
-parser.add_argument('--gamma', default=1.0, type=float, help='gamma : penalty for Places Probas (KLdiv)')
-parser.add_argument('--delta', default=1.0, type=float, help='delta : penalty for fmri encoding model (MSE)')
-parser.add_argument('--epsilon', default=1.0, type=float, help='epsilon : penalty for attention output selection')
-parser.add_argument('--ninputfilters', default=16, type=int, help='number of features map in conv1')
-parser.add_argument('--expansion', default=1, type=int, help='conv2 will be 32*expansion features, conv3 64*expansion, conv4 128*expansion')
-parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
-parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
-parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
-
-args = parser.parse_args()
 
 alpha = args.alpha
 beta = args.beta

@@ -9,7 +9,12 @@ __pycache__/
 # pytorch checkpoint
 *.pth
 *.pth.tar
+*.pt
 
+*.png
+
+## NIFTI
+*.nii.gz
 
 # Distribution / packaging
 .Python
@@ -132,3 +137,5 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+tests.ipynb
+test.csv

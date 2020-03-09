@@ -132,11 +132,12 @@ for epoch in tqdm(range(nbepoch)):
         # and if it has, it will make a checkpoint of the current model
     early_stopping(val_loss[-1], net)
     
+    print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
     if early_stopping.early_stop:
         print("Early stopping")
         break
 
-test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta)
+test_loss = test_kl(1,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=mseloss,alpha=alpha,beta=beta,gamma=gamma,delta=delta,epsilon=epsilon)
 #print("Test Loss : {}".format(test_loss))
 
 enddate = datetime.now()

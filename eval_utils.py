@@ -14,7 +14,6 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from train_utils import testset
 from pytorchtools import EarlyStopping
 from datetime import datetime
 
@@ -43,6 +42,34 @@ def test_kl_r2(testloader,net,kl_im,kl_audio,kl_places,mseloss):
 
             # Forward pass
             _,_,_,fmri_p = net(wav)
+            
+            all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
+            
+
+
+    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')
+    return r2_model
+
+
+def test_r2(testloader,net,mseloss):
+    all_fmri = []
+    all_fmri_p = []
+    net.eval()
+    with torch.no_grad():
+        for onesample in testloader:
+
+            bsize = onesample['waveform'].shape[0]
+            
+            # load data
+            wav = torch.Tensor(onesample['waveform']).cuda()
+
+            wav = wav.view(bsize,1,-1,1)
+
+            fmri = onesample['fmri'].view(bsize,-1).cuda()
+
+            # Forward pass
+            fmri_p = net(wav)
             
             all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
             all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))

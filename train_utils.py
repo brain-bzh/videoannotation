@@ -242,6 +242,67 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
     return running_loss/batch_idx
 
 
+def train(epoch,trainloader,net,optimizer,mseloss):
+
+    running_loss = 0
+    net.train()
+
+    for batch_idx, (onesample) in enumerate(trainloader):
+        
+
+
+        optimizer.zero_grad()
+        bsize = onesample['waveform'].shape[0]
+        
+        # for 1D output
+        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()        
+
+        # Forward pass
+        fmri_p = net(wav)
+
+        # Calculate loss
+        
+        fmri = onesample['fmri'].view(bsize,-1).cuda()
+        loss=mseloss(fmri_p,fmri)
+            
+        loss.backward()
+        
+        optimizer.step()
+
+        running_loss += loss.item()
+        
+
+        
+    return running_loss/batch_idx
+
+
+def test(epoch,testloader,net,optimizer,mseloss):
+
+    running_loss = 0
+    net.eval()
+    with torch.no_grad():
+        for batch_idx, (onesample) in enumerate(testloader):
+
+            bsize = onesample['waveform'].shape[0]
+
+            # load data
+            wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+            
+            # Forward pass
+            fmri_p = net(wav)
+
+            # Calculate loss
+
+            # For 1D output
+            
+            fmri = onesample['fmri'].view(bsize,-1).cuda()
+                
+            loss = mseloss(fmri_p,fmri)
+                
+            running_loss += loss.item()
+            
+        return running_loss/batch_idx
+
 def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
 
     running_loss = 0
@@ -299,44 +360,38 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
             
     return running_loss/batch_idx
 
-
-
-
 trainsets = []
 testsets= []
 valsets = []
-
-#path = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli/'
 
 path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
 
 fmripath = '/home/brain/nico/sub-01'
 for root, dirs, files in os.walk(path, topdown=False):
-   for name in files:
-       if name[-3:] == 'mkv':
-           currentvid = os.path.join(root, name)
-           #print(currentvid)
-           try:
-               dataset = AudioToEmbeddings(currentvid,fmripath=fmripath)
-               total_len = (len(dataset))
-               train_len = int(np.floor(0.8*total_len))
-               val_len = int(np.floor(0.1*total_len))
-               test_len = int(np.floor(0.1*total_len)) - 1
-               trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
-               valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
-               testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
-
-           except FileNotFoundError as expr:
-               print("Issue with file {}".format(currentvid))
-               print(expr)
-           
-           
-           
+    for name in files:
+        if name[-3:] == 'mkv':
+            currentvid = os.path.join(root, name)
+            #print(currentvid)
+            try:
+                dataset = AudioToEmbeddings(currentvid,fmripath=fmripath,samplerate=16000)
+                total_len = (len(dataset))
+                train_len = int(np.floor(0.8*total_len))
+                val_len = int(np.floor(0.1*total_len))
+                test_len = int(np.floor(0.1*total_len)) - 1
+                trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
+                valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
+                testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
+                
+            except FileNotFoundError as expr:
+                print("Issue with file {}".format(currentvid))
+                print(expr)
+        
+        
+        
             
 
         
                 
-
 
 trainset = torch.utils.data.ConcatDataset(trainsets)
 valset = torch.utils.data.ConcatDataset(valsets)

@@ -1,4 +1,4 @@
-## Author : Nicolas Farrugia, February 2020
+## Author : Nicolas Farrugia, Maëlle Freteault, February 2020
 from matplotlib import pyplot as plt 
 import torch
 from torchvision.io import read_video,read_video_timestamps
@@ -18,6 +18,7 @@ import glob
 import os
 
 ### Utility function to fetch fMRI data
+### Modified from Maëlle Freteault 
 def fetchMRI(videofile,fmripath):
     ### isolate the mkv file (->filename) and the rest of the path (->videopath)
     videopath,filename = os.path.split(videofile)

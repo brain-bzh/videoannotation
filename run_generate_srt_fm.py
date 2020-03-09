@@ -14,6 +14,10 @@ import os
 import sys
 import numpy as np 
 
+
+from librosa.core import get_duration
+
+
 videofile = sys.argv[1]
 srtfile = (videofile[:-3] + 'srt')
 wavfile = (videofile[:-3] + 'wav')
@@ -56,12 +60,12 @@ places_categories= placesCNN_basic.classes ### Places Categories
 fps = 24
 nb_frames = 1
 
-nbsec = 1
+nbsec = 1.49
 
 n_obj = 3
 
-beg_film = 1
-end_film = 600
+beg_film = 0
+end_film = np.floor(get_duration(filename=wavfile))
 
 allpreds = []
 onsets = []
@@ -93,7 +97,7 @@ audioset_proba = []
 
 n=0
 with torch.no_grad():    
-    for curstart in tqdm(range(beg_film,end_film,nbsec)):
+    for curstart in tqdm(np.arange(beg_film,end_film,nbsec)):
 
         start = curstart
         end = start + (nb_frames/fps)
@@ -140,7 +144,7 @@ with torch.no_grad():
 
         proba_im = F.softmax(preds_class.data[0], 0).data.squeeze()
         im_proba.append(proba_im)
-        print(proba_im)
+        #print(proba_im)
 
         # process output of Places Classes and print results:
 
@@ -159,7 +163,7 @@ with torch.no_grad():
         for k in range(3):
             texttagging += np.array(labels)[sorted_indexes[k]]
             texttagging += ', '
-            print(clipwise_output[sorted_indexes[k]])
+            #print(clipwise_output[sorted_indexes[k]])
         texttagging = texttagging[:-2]
 
         audioset_proba.append(clipwise_output)
@@ -171,7 +175,7 @@ with torch.no_grad():
         #print(annotation_str)
 
         ### Append to srt file with timecode 
-        utils.gen_srt(annotation_str,start,srtfile=srtfile,num=n,duration=nbsec)
+        utils.gen_srt(annotation_str,int(np.round(start)),srtfile=srtfile,num=n,duration=int(np.floor(nbsec)))
         n=n+1
         
 ## Removing temporary wave file 

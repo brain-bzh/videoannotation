@@ -238,10 +238,12 @@ class SoundNet8_pytorch(nn.Module):
     def forward(self, x):
         for net in [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5, self.conv6, self.conv7]:
             x = net(x)
-            print(x.shape)
-        object_pred = self.conv8(x)
-        scene_pred = self.conv8_2(x) 
-        return x,object_pred, scene_pred
+            
+        ### "Truncated" soundnet to only extract conv7 
+
+        #object_pred = self.conv8(x)
+        #scene_pred = self.conv8_2(x) 
+        return x
 
 
 class SoundNetEncoding(nn.Module):
@@ -249,22 +251,28 @@ class SoundNetEncoding(nn.Module):
         super(SoundNetEncoding, self).__init__()
 
         self.soundnet = SoundNet8_pytorch()
+        self.fmrihidden = fmrihidden
+        self.nroi = nroi
 
+        print("Loading SoundNet weights...")
         # load pretrained weights of original soundnet model
         self.soundnet.load_state_dict(torch.load(pytorch_param_path))
 
+        print("Pretrained model loaded")
 
-        self.encoding_fmri = nn.Sequential(
-                nn.AdaptiveAvgPool2d((1,1)), # Global average pooling
+        self.gpool = nn.AdaptiveAvgPool2d((1,1)) # Global average pooling
+
+        self.encoding_fmri = nn.Sequential(                
                 nn.Linear(1024,self.fmrihidden),
                 nn.ReLU(inplace=True),
                 nn.Linear(self.fmrihidden,self.nroi)
             )
 
     def forward(self, x):
-        emb,_,_ = self.soundnet(x)
-
-        out = self.encoding_fmri(emb)
+        emb = self.soundnet(x)
+        emb = self.gpool(emb)
+        
+        out = self.encoding_fmri(emb.view(-1,1024))
         
         return out
 

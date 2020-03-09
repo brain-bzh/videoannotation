@@ -238,25 +238,33 @@ class SoundNet8_pytorch(nn.Module):
     def forward(self, x):
         for net in [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5, self.conv6, self.conv7]:
             x = net(x)
+            print(x.shape)
         object_pred = self.conv8(x)
         scene_pred = self.conv8_2(x) 
         return x,object_pred, scene_pred
 
-    def extract_feat(self,x:torch.Tensor)->list:
-        output_list = []
-        for net in [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5, self.conv6, self.conv7]:
-            x = net(x)
-            output_list.append(x.detach().cpu().numpy())
-        object_pred = self.conv8(x)
-        output_list.append(object_pred.detach().cpu().numpy())
-        scene_pred = self.conv8_2(x) 
-        output_list.append(scene_pred.detach().cpu().numpy())
-        return output_list
-    
-    
-    def extract_feat_nooutput(self,x:torch.Tensor)->list:
-        output_list = []
-        for net in [self.conv1, self.conv2, self.conv3, self.conv4, self.conv5, self.conv6, self.conv7]:
-            x = net(x)
-            output_list.append(x.detach().cpu().numpy())        
-        return output_list
+
+class SoundNetEncoding(nn.Module):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None):
+        super(SoundNetEncoding, self).__init__()
+
+        self.soundnet = SoundNet8_pytorch()
+
+        # load pretrained weights of original soundnet model
+        self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+
+
+        self.encoding_fmri = nn.Sequential(
+                nn.AdaptiveAvgPool2d((1,1)), # Global average pooling
+                nn.Linear(1024,self.fmrihidden),
+                nn.ReLU(inplace=True),
+                nn.Linear(self.fmrihidden,self.nroi)
+            )
+
+    def forward(self, x):
+        emb,_,_ = self.soundnet(x)
+
+        out = self.encoding_fmri(emb)
+        
+        return out
+

@@ -258,6 +258,10 @@ class SoundNetEncoding(nn.Module):
         # load pretrained weights of original soundnet model
         self.soundnet.load_state_dict(torch.load(pytorch_param_path))
 
+        #freeze the parameters of soundNet
+        for param in self.soundnet.parameters():
+            param.requires_grad = False
+
         print("Pretrained model loaded")
 
         self.gpool = nn.AdaptiveAvgPool2d((1,1)) # Global average pooling

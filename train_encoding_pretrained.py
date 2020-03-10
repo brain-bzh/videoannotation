@@ -62,11 +62,11 @@ else:
     net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention)
 
 net = net.cuda()
-mseloss = nn.MSELoss(reduction='mean')
+mseloss = nn.MSELoss(reduction='sum')
 
 ### Optimizer and Schedulers
-optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
-
+#optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
+optimizer = torch.optim.Adam(net.parameters())
 lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-4,cooldown=2)
 
 early_stopping = EarlyStopping(patience=15, verbose=True)

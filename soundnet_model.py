@@ -273,10 +273,11 @@ class SoundNetEncoding(nn.Module):
             )
 
     def forward(self, x):
-        emb = self.soundnet(x)
-        emb = self.gpool(emb)
-        
-        out = self.encoding_fmri(emb.view(-1,1024))
+        with torch.no_grad():
+            emb = self.soundnet(x)
+            emb = self.gpool(emb)
+            emb = emb.view(-1,1024)
+        out = self.encoding_fmri(emb)
         
         return out
 

@@ -351,38 +351,3 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
             running_loss += loss.item()
             
     return running_loss/batch_idx
-
-trainsets = []
-testsets= []
-valsets = []
-
-path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/bourne_supremacy'
-
-fmripath = '/home/brain/nico/sub-01'
-for root, dirs, files in os.walk(path, topdown=False):
-    for name in files:
-        if name[-3:] == 'mkv':
-            currentvid = os.path.join(root, name)
-            #print(currentvid)
-            try:
-                dataset = AudioToEmbeddings(currentvid,fmripath=fmripath,samplerate=22050)
-                total_len = (len(dataset))
-                train_len = int(np.floor(0.6*total_len))
-                val_len = int(np.floor(0.2*total_len))
-                test_len = int(np.floor(0.2*total_len)) - 1
-
-                trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
-                valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
-                testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
-
-            except FileNotFoundError as expr:
-                print("Issue with file {}".format(currentvid))
-                print(expr)
-        
-trainset = torch.utils.data.ConcatDataset(trainsets)
-valset = torch.utils.data.ConcatDataset(valsets)
-testset = torch.utils.data.ConcatDataset(testsets)
-
-trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
-valloader = DataLoader(valset,batch_size=64)
-testloader = DataLoader(testset,batch_size=64) 

@@ -11,7 +11,7 @@ import time
 import matplotlib.pyplot as plt 
 import numpy as np 
 #add relative
-from soundnet_pytorch_model import * 
+from soundnet_model import * 
 
 import librosa
 

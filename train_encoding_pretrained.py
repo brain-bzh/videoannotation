@@ -15,7 +15,6 @@ import torch.nn.functional as F
 import librosa
 import soundfile
 from soundnet_model import SoundNetEncoding
-
 import argparse
 
 parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
@@ -25,11 +24,15 @@ parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons 
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 
+parser.add_argument('--movie', default=None, type=str, help='Path to the movie directory')
+parser.add_argument('--subject', default=None, type=str, help='Path to the subject parcellation directory')
+parser.add_argument('--audiopad', default = 0, type=int, help='size of audio padding to take in account for one audio unit learned')
+parser.add_argument('--save_path', default=None, type=str, help='path to results')
 args = parser.parse_args()
 
 from train_utils import AudioToEmbeddings
-
-from train_utils import trainloader,valloader,testloader,dataset
+from dataloader_constructor import construct_dataloader
+#from train_utils import trainloader,valloader,testloader,dataset
 
 from train_utils import train,test
 
@@ -43,14 +46,21 @@ from nilearn.regions import signals_to_img_labels
 from eval_utils import test_r2
 
 mistroifile = '/home/brain/MIST_ROI.nii.gz'
-                     
+#mistroifile = '/home/maelle/Database/MIST_parcellation/Parcellations/MIST_ROI.nii.gz'
+
+
+mv_path = args.movie
+sub_path = args.subject
+audiopad = args.audiopad
+trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad)
+
 nroi_attention = args.nroi_attention
 fmrihidden = args.hidden
 
 print(args)
 
-
-destdir = 'cp_{}'.format(fmrihidden)
+save_path = args.save_path
+destdir = os.path.join(save_path, 'cp_{}'.format(fmrihidden))
 ### Model Setup
 if args.resume is not None:
     print("Reloading model {}".format(args.resume))
@@ -91,9 +101,6 @@ if False:
         fmri_p = net(wav)
         print("Predicted fmri shape : {}".format(fmri_p.shape))
         print("CRASH TEST SUCCESSFUL")
-
-
-
 
 
 ### Main Training Loop 
@@ -167,7 +174,7 @@ ax = plt.subplot(2,1,2)
 plt.plot(state['train_loss'])
 plt.plot(state['val_loss'])
 plt.legend(['Train','Val'])
-plt.title("Mean $R^2=${}, Max $R^2=${}".format(r2model.mean(),r2model.max()))
+plt.title("Mean $R^2=${}, Max $R^2=${}, for audiopad =${}".format(r2model.mean(),r2model.max(), audiopad))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)

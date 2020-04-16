@@ -30,8 +30,7 @@ parser.add_argument('--audiopad', default = 0, type=int, help='size of audio pad
 parser.add_argument('--save_path', default=None, type=str, help='path to results')
 args = parser.parse_args()
 
-from train_utils import AudioToEmbeddings
-from dataloader_constructor import construct_dataloader
+from train_utils import AudioToEmbeddings, construct_dataloader
 #from train_utils import trainloader,valloader,testloader,dataset
 
 from train_utils import train,test

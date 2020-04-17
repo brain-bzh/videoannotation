@@ -18,7 +18,7 @@ def SoundNet_FV_from_audio(path, SoundNet8_param_path, sample_rate=22050, tr=1, 
 
     times_FV = None
     audio_lentgh = librosa.core.get_duration(filename = wavfile)
-    for offset in np.arange(start = 0, stop = audio_lentgh-(tr*2*audiopad), step = tr) :
+    for offset in np.arange(start = 0, stop = audio_lentgh-(tr*2*audiopad+1), step = tr) :
         #suppress last/incomplete segment from audio
         if audio_lentgh-offset >= tr:
             (waveform, _) = librosa.core.load(wavfile, sr=sample_rate, mono = True, offset=offset ,duration=tr*(2*audiopad+1))
@@ -49,7 +49,7 @@ def audio_subsampling_by_tr(wavfile, subsampling = 'first', tr=1.49):
                 
 
 def show_similarity_matrix(save_path, X, label_X, Y = None, label_Y = None) : 
-    if Y and label_Y == None:
+    if label_Y == None:
         label_Y = label_X
     matrix = pairwise.cosine_similarity(X, Y)
     plt.matshow(matrix)
@@ -90,22 +90,28 @@ if __name__ == "__main__":
                
                 #experimental conditions matrix + hrf regressors
                 tr = 1.49
-                trials_length = [audio_length]
+                trials_length = [audio_length-(tr*2*audiopad)]
                 inter_trials_interval = 0
 
                 stimuli_amplitude = times_FV
-                stimuli_numbers = [len(stimuli_amplitude)]
-                stimuli_duration = [[tr]]
+                stimuli_numbers = len(stimuli_amplitude)
+                stimuli_duration = [tr]
                 inter_stimuli_intervals = np.zeros_like(stimuli_amplitude)
                 
-                [exp_conditions], [exp_stimuli], frame_times = experimental_matrix(trials_length, inter_trials_interval, stimuli_numbers, stimuli_duration, inter_stimuli_intervals, tr, stimuli_amplitude)
+                (onsets, durations, amplitudes), frame_times = experimental_matrix(trials_length, inter_trials_interval, stimuli_numbers, stimuli_duration, inter_stimuli_intervals, tr, stimuli_amplitude)
+
                 hrf_models = [None, 'spm', 'glover']
                 oversampling = 16
-
-                models_signals = []
                 for i, hrf_model in enumerate(hrf_models) :
-                    signal, leg = hemodynamic_models.compute_regressor(exp_conditions, hrf_model, frame_times, oversampling=oversampling)
-                    models_signals.append(signal)
+                    all_features = []
+                    for onset, duration, amplitude in zip(onsets.T, durations.T, amplitudes.T):
+                        exp_conditions = (onset, duration, amplitude)
+                        signal, leg = hemodynamic_models.compute_regressor(exp_conditions, hrf_model, frame_times, oversampling=oversampling)
+                        all_features.append(signal[:-1])
+                    HRF_features = np.squeeze(np.stack(all_features)).T
+                    print(HRF_features.shape, times_FV.shape)
+                    show_similarity_matrix(save_path, times_FV, 'audiopad {} : features vector'.format(audiopad), HRF_features, hrf_model)
+
 
                 # matrix_similarity = {}
                 # for stimuli_amplitude, stimuli_origin in zip([first_audioframe, max_audioframe, mean_audioframe], stimuli_origins):

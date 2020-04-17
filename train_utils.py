@@ -16,6 +16,7 @@ import librosa
 import soundfile
 import glob
 import os
+from sklearn.metrics import r2_score
 
 ### Utility function to fetch fMRI data
 ### Modified from Maëlle Freteault 
@@ -168,7 +169,6 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
 
 
 def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
-
     running_loss = 0
     net.train()
 
@@ -210,7 +210,6 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         if mseloss is not None:
             fmri = onesample['fmri'].view(bsize,1,-1).cuda()
 
-
             if net.maskattention is not None:
                 
             
@@ -233,13 +232,13 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         optimizer.step()
 
         running_loss += loss.item()
-
-        
+  
     return running_loss/batch_idx
 
 
 def train(epoch,trainloader,net,optimizer,mseloss):
-
+    all_fmri = []
+    all_fmri_p = []
     running_loss = 0
     net.soundnet.eval()
     net.encoding_fmri.train()
@@ -256,20 +255,23 @@ def train(epoch,trainloader,net,optimizer,mseloss):
 
         # Calculate loss
         fmri = onesample['fmri'].view(bsize,-1).cuda()
-        loss=mseloss(fmri_p,fmri)/bsize  
+        all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+        all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
 
+        loss=mseloss(fmri_p,fmri)/bsize  
         loss.backward()
         optimizer.step()
 
         running_loss += loss.item()
         
 
-        
-    return running_loss/batch_idx
+    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')      
+    return running_loss/batch_idx, r2_model
 
 
 def test(epoch,testloader,net,optimizer,mseloss):
-
+    all_fmri = []
+    all_fmri_p = []
     running_loss = 0
     net.eval()
     with torch.no_grad():
@@ -290,10 +292,13 @@ def test(epoch,testloader,net,optimizer,mseloss):
             fmri = onesample['fmri'].view(bsize,-1).cuda()
                 
             loss = mseloss(fmri_p,fmri)/bsize
-                
-            running_loss += loss.item()
             
-        return running_loss/batch_idx
+            all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
+            running_loss += loss.item()
+
+        r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')   
+        return running_loss/batch_idx, r2_model
 
 def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
 

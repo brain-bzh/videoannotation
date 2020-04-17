@@ -1,5 +1,9 @@
 import torch
 import torch.nn as nn
+import MRI_utils as mri
+import librosa
+from nistats import hemodynamic_models
+import numpy as np
 
 class WaveformCNN8(nn.Module):
     def __init__(self,nfeat=16,ninputfilters=16,do_encoding_fmri=False,nroi=210,fmrihidden=1000,nroi_attention=None):
@@ -247,7 +251,7 @@ class SoundNet8_pytorch(nn.Module):
 
 
 class SoundNetEncoding(nn.Module):
-    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, wavfile=None, audiopad=0, oversampling = 16):
         super(SoundNetEncoding, self).__init__()
 
         self.soundnet = SoundNet8_pytorch()
@@ -271,12 +275,29 @@ class SoundNetEncoding(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Linear(self.fmrihidden,self.nroi)
             )
+        if hrf_model is not None : 
+            self.hrf_model = hrf_model
+            self.audio_length = librosa.core.get_duration(filename = wavfile)
+            self.audiopad = audiopad
+            self.oversampling = oversampling
+        else :
+            self.hrf_model=None
 
     def forward(self, x):
         with torch.no_grad():
             emb = self.soundnet(x)
             emb = self.gpool(emb)
             emb = emb.view(-1,1024)
+            if self.hrf_model is not None :
+                (onsets, durations, amplitudes), frame_times = mri.design_matrix_for_Cneuromod(self.audio_length, emb, self.audiopad)
+                all_features = []
+                for onset, duration, amplitude in zip(onsets.T, durations.T, amplitudes.T):
+                    exp_conditions = (onset, duration, amplitude)
+                    signal, _ = hemodynamic_models.compute_regressor(exp_conditions, self.hrf_model, frame_times, oversampling=self.oversampling)
+                    all_features.append(signal)
+                    emb = np.squeeze(np.stack(all_features)).T
+                    print(emb.shape)
+
         out = self.encoding_fmri(emb)
         
         return out

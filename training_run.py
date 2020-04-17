@@ -6,8 +6,8 @@ import os
 #fmripath = '/home/brain/nico/sub-01'
 #fmripath = '/home/maelle/Database/movie10_parc/sub-01'
 
-#result_path = '/home/maelle/Results'
-result_path = '/home/brain/Results'
+#result_path = '/home/maelle/Results/training_model_test'
+result_path = '/home/brain/Results/HRF_response'
 
 subjects_path = {'sub_01':'/home/brain/nico/sub-01',
                 'sub_02':'/home/brain/nico/sub-02',
@@ -41,14 +41,15 @@ for subject, sub_path in subjects_path.items():
                 print(mv_result_path)
 
                 for hidden in [100, 500, 1000, 5000, 10000]:
-                    for audiopad in range(3):
-                        cmd = 'python3 train_encoding_pretrained.py --movie '+mv_path \
-                            +' --subject '+sub_path \
-                            +' --audiopad '+str(audiopad) \
-                            +' --hidden '+str(hidden) \
-                            +' --save_path '+mv_result_path
-                        
-                        os.system(cmd)
+                    for audiopad in range(4):
+                        for hrf_model in ['spm', 'glover']:
+                            cmd = 'python3 train_encoding_pretrained.py --movie '+mv_path \
+                                +' --subject '+sub_path \
+                                +' --audiopad '+str(audiopad) \
+                                +' --hidden '+str(hidden) \
+                                +' --save_path '+mv_result_path \
+                                +' --hrf_model '+hrf_model                    
+                            os.system(cmd)
                     
 
 

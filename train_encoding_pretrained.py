@@ -28,6 +28,7 @@ parser.add_argument('--movie', default=None, type=str, help='Path to the movie d
 parser.add_argument('--subject', default=None, type=str, help='Path to the subject parcellation directory')
 parser.add_argument('--audiopad', default = 0, type=int, help='size of audio padding to take in account for one audio unit learned')
 parser.add_argument('--save_path', default=None, type=str, help='path to results')
+parser.add_argument('--hrf_model', default=None, type=str, help='hrf model to compute the regressors of the hemodynamic response')
 args = parser.parse_args()
 
 from train_utils import AudioToEmbeddings, construct_dataloader
@@ -51,6 +52,7 @@ mistroifile = '/home/brain/MIST_ROI.nii.gz'
 mv_path = args.movie
 sub_path = args.subject
 audiopad = args.audiopad
+hrf_model = args.hrf_model
 trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad)
 
 nroi_attention = args.nroi_attention
@@ -68,7 +70,8 @@ if args.resume is not None:
     net.load_state_dict(old_dict['net'])
 else:
     print("Training from scratch")
-    net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention)
+    net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model='spm', wavfile=dataset.wavfile, audiopad=audiopad)
 
 net = net.cuda()
 mseloss = nn.MSELoss(reduction='sum')
@@ -106,10 +109,16 @@ if False:
 startdate = datetime.now()
 
 train_loss = []
+train_r2 = []
 val_loss = []
+val_r2 = []
 for epoch in tqdm(range(nbepoch)):
-    train_loss.append(train(epoch,trainloader,net,optimizer,mseloss=mseloss))
-    val_loss.append(test(epoch,valloader,net,optimizer,mseloss=mseloss))
+    t_l, t_r2 = train(epoch,trainloader,net,optimizer,mseloss=mseloss)
+    train_loss.append(t_l)
+    train_r2.append(t_r2)
+    v_l, v_r2 = test(epoch,valloader,net,optimizer,mseloss=mseloss)
+    val_loss.append(v_l)
+    val_r2.append(v_r2)
     print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
     lr_sched.step(val_loss[-1])
 
@@ -134,9 +143,9 @@ if not os.path.isdir(destdir):
 net.load_state_dict(torch.load('checkpoint.pt'))
 
 dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-str_bestmodel = os.path.join(destdir,"{}.pt".format(dt_string))
-str_bestmodel_plot = os.path.join(destdir,"{}_{}.png".format(dt_string,fmrihidden))
-str_bestmodel_nii = os.path.join(destdir,"{}_{}.nii.gz".format(dt_string,fmrihidden))
+str_bestmodel = os.path.join(destdir,"{}_{}_{}.pt".format(dt_string, fmrihidden, hrf_model))
+str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}.png".format(dt_string,fmrihidden, hrf_model))
+str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}.nii.gz".format(dt_string,fmrihidden, hrf_model))
 
 # Remove temp file 
 os.remove('checkpoint.pt')
@@ -154,7 +163,9 @@ state = {
             'net': net.state_dict(),
             'epoch': epoch,
             'train_loss' : train_loss,
+            'train_r2' : train_r2,
             'val_loss' : val_loss,
+            'val_r2' : val_r2,
             'test_loss' : test_loss,
             'r2' : r2model,
             'r2max' : r2model.max(),
@@ -166,19 +177,27 @@ state = {
 
 
 ### Plot the loss figure
-f = plt.figure(figsize=(20,10))
+f = plt.figure(figsize=(20,20))
 
-ax = plt.subplot(2,1,2)
+ax = plt.subplot(3,1,2)
 
 plt.plot(state['train_loss'])
 plt.plot(state['val_loss'])
 plt.legend(['Train','Val'])
-plt.title("Mean $R^2=${}, Max $R^2=${}, for audiopad =${}".format(r2model.mean(),r2model.max(), audiopad))
+plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad))
+
+### R2 evolution during training
+ax = plt.subplot(3,1,3)
+
+plt.plot(state['train_r2'])
+plt.plot(state['val_r2'])
+plt.legend(['Train','Val'])
+plt.title("R^2 evolution for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
 
-ax = plt.subplot(2,1,1)
+ax = plt.subplot(3,1,1)
 
 plot_stat_map(r2_img,display_mode='z',cut_coords=8,figure=f,axes=ax)
 f.savefig(str_bestmodel_plot)

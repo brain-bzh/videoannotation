@@ -289,14 +289,15 @@ class SoundNetEncoding(nn.Module):
             emb = self.gpool(emb)
             emb = emb.view(-1,1024)
             if self.hrf_model is not None :
-                (onsets, durations, amplitudes), frame_times = mri.design_matrix_for_Cneuromod(self.audio_length, emb, self.audiopad)
+                fv = emb.cpu().numpy()
+                (onsets, durations, amplitudes), frame_times = mri.design_matrix_for_Cneuromod(self.audio_length, fv, self.audiopad)
                 all_features = []
                 for onset, duration, amplitude in zip(onsets.T, durations.T, amplitudes.T):
                     exp_conditions = (onset, duration, amplitude)
                     signal, _ = hemodynamic_models.compute_regressor(exp_conditions, self.hrf_model, frame_times, oversampling=self.oversampling)
                     all_features.append(signal)
                     emb = np.squeeze(np.stack(all_features)).T
-                    print(emb.shape)
+                    emb = torch.from_numpy(emb).cuda()
 
         out = self.encoding_fmri(emb)
         

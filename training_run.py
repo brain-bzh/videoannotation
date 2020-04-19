@@ -6,22 +6,22 @@ import os
 #fmripath = '/home/brain/nico/sub-01'
 #fmripath = '/home/maelle/Database/movie10_parc/sub-01'
 
-result_path = '/home/maelle/Results/training_model_test'
-#result_path = '/home/brain/Results/HRF_response'
+#result_path = '/home/maelle/Results/training_model_test'
+result_path = '/home/brain/Results/HRF_response'
 
-subjects_path = {'sub_01':'/home/maelle/Database/movie10_parc/sub-01',
-                'sub_02':'/home/maelle/Database/movie10_parc/sub-02',
-                'sub_03':'/home/maelle/Database/movie10_parc/sub-03',
-                'sub_04':'/home/maelle/Database/movie10_parc/sub-01',
+subjects_path = {'sub_01':'/home/brain/nico/sub-01',
+                'sub_02':'/home/brain/nico/sub-02',
+                'sub_03':'/home/brain/nico/sub-03',
+                'sub_04':'/home/brain/nico/sub-04',
                 'sub_05':None,
                 'sub_06':None
                 }
 
-movies_path = {'life': '/home/maelle/Database/cneuromod/movie10/stimuli/life',
-            #'bourne_supremacy':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/bourne_supremacy',
-            #'hidden_figures':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/hidden_figures',
-            #'wolf_of_wall_street':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/wolf_of_wall_street', 
-            #'all_movies':'/media/brain/Elec_HD/cneuromod/movie10/stimuli'
+movies_path = {'life': '/media/brain/Elec_HD/cneuromod/movie10/stimuli/life',
+            'bourne_supremacy':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/bourne_supremacy',
+            'hidden_figures':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/hidden_figures',
+            'wolf_of_wall_street':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/wolf_of_wall_street', 
+            'all_movies':'/media/brain/Elec_HD/cneuromod/movie10/stimuli'
             }
 
 for subject, sub_path in subjects_path.items():

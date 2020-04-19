@@ -110,8 +110,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
             convert_Audio(videofile, self.wavfile)
 
         wav,native_sr = librosa.core.load(self.wavfile,duration=2,sr=None)
-
-        
+      
         if int(native_sr)!=int(self.sample_rate):
             print("Native Sampling rate is {}".format(native_sr))
 
@@ -145,7 +144,8 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
                     self.im_proba = self.im_proba[:min_len,:]
                     self.places_proba = self.places_proba[:min_len,:]
                     self.onsets = self.onsets[:min_len]
-                    
+        
+        #### Based on Cneuromod design, create a design matrix to compute the Hrf regressors in the training        
 
     def __len__(self):
         return (self.fmri.shape[0] - 2*self.audioPad)
@@ -156,8 +156,8 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         except IndexError:
             raise(IndexError('Pb with sizes'))
 
-
-        (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=self.dur*(2*self.audioPad+1))
+        duration = self.dur*(2*self.audioPad+1)
+        (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=duration)
 
         sample = {'waveform':(waveform),'places':(self.places_proba[idx+self.audioPad]),
             'audioset':(self.audioset_proba[idx+self.audioPad]),'imagenet':(self.im_proba[idx]+self.audioPad)}
@@ -165,7 +165,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         if self.fmrifile is not None:
             sample['fmri'] = self.fmri[idx+self.audioPad]
 
-        return (sample)
+        return (sample, offset, duration)
 
 
 def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
@@ -243,20 +243,19 @@ def train(epoch,trainloader,net,optimizer,mseloss):
     net.soundnet.eval()
     net.encoding_fmri.train()
 
-    for batch_idx, (onesample) in enumerate(trainloader):
+    for batch_idx, (onesample, offset, duration) in enumerate(trainloader):
         optimizer.zero_grad()
         bsize = onesample['waveform'].shape[0]
 
         # for 1D output
         wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()     
-
         # Forward pass
-        fmri_p = net(wav)
+        fmri_p = net(wav, offset, duration)
 
         # Calculate loss
         fmri = onesample['fmri'].view(bsize,-1).cuda()
         all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
-        all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
+        all_fmri_p.append(fmri_p.detach().cpu().numpy().reshape(bsize,-1))
 
         loss=mseloss(fmri_p,fmri)/bsize  
         loss.backward()
@@ -275,7 +274,7 @@ def test(epoch,testloader,net,optimizer,mseloss):
     running_loss = 0
     net.eval()
     with torch.no_grad():
-        for batch_idx, (onesample) in enumerate(testloader):
+        for batch_idx, (onesample, offset, duration) in enumerate(testloader):
 
             bsize = onesample['waveform'].shape[0]
 
@@ -283,7 +282,7 @@ def test(epoch,testloader,net,optimizer,mseloss):
             wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
             
             # Forward pass
-            fmri_p = net(wav)
+            fmri_p = net(wav, offset, duration)
 
             # Calculate loss
 
@@ -387,7 +386,7 @@ def construct_dataloader(path, fmripath, audiopad):
     valset = torch.utils.data.ConcatDataset(valsets)
     testset = torch.utils.data.ConcatDataset(testsets)
 
-    trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
+    trainloader = DataLoader(trainset,batch_size=64)
     valloader = DataLoader(valset,batch_size=64)
     testloader = DataLoader(testset,batch_size=64)
 

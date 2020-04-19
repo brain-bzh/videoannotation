@@ -71,7 +71,7 @@ if args.resume is not None:
 else:
     print("Training from scratch")
     net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model='spm', wavfile=dataset.wavfile, audiopad=audiopad)
+                            hrf_model=hrf_model)
 
 net = net.cuda()
 mseloss = nn.MSELoss(reduction='sum')
@@ -184,7 +184,7 @@ ax = plt.subplot(3,1,2)
 plt.plot(state['train_loss'])
 plt.plot(state['val_loss'])
 plt.legend(['Train','Val'])
-plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad))
+plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad, hrf_model))
 
 ### R2 evolution during training
 ax = plt.subplot(3,1,3)
@@ -192,7 +192,7 @@ ax = plt.subplot(3,1,3)
 plt.plot(state['train_r2'])
 plt.plot(state['val_r2'])
 plt.legend(['Train','Val'])
-plt.title("R^2 evolution for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad))
+plt.title("R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)

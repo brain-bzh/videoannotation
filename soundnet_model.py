@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-import MRI_utils as mri
-import librosa
 from nistats import hemodynamic_models
 import numpy as np
 
@@ -251,7 +249,7 @@ class SoundNet8_pytorch(nn.Module):
 
 
 class SoundNetEncoding(nn.Module):
-    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, wavfile=None, audiopad=0, oversampling = 16):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0):
         super(SoundNetEncoding, self).__init__()
 
         self.soundnet = SoundNet8_pytorch()
@@ -275,29 +273,49 @@ class SoundNetEncoding(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Linear(self.fmrihidden,self.nroi)
             )
+            
         if hrf_model is not None : 
             self.hrf_model = hrf_model
-            self.audio_length = librosa.core.get_duration(filename = wavfile)
-            self.audiopad = audiopad
             self.oversampling = oversampling
+            self.audiopad = audiopad
+            self.tr = tr
         else :
             self.hrf_model=None
 
-    def forward(self, x):
+    def forward(self, x, onsets, durations):
         with torch.no_grad():
             emb = self.soundnet(x)
             emb = self.gpool(emb)
             emb = emb.view(-1,1024)
+
             if self.hrf_model is not None :
-                fv = emb.cpu().numpy()
-                (onsets, durations, amplitudes), frame_times = mri.design_matrix_for_Cneuromod(self.audio_length, fv, self.audiopad)
-                all_features = []
-                for onset, duration, amplitude in zip(onsets.T, durations.T, amplitudes.T):
-                    exp_conditions = (onset, duration, amplitude)
-                    signal, _ = hemodynamic_models.compute_regressor(exp_conditions, self.hrf_model, frame_times, oversampling=self.oversampling)
-                    all_features.append(signal)
-                    emb = np.squeeze(np.stack(all_features)).T
-                    emb = torch.from_numpy(emb).cuda()
+                fvs = emb.cpu().numpy()
+
+                index_zeros = np.where(onsets == 0)
+                if len(index_zeros[0]) > 0 and index_zeros[0][0] != 0:
+                    n_onsets = np.split(onsets, index_zeros[0]) 
+                    n_durations = np.split(durations, index_zeros[0])
+                    fvs = np.split(fvs, index_zeros[0])
+                else:
+                    n_onsets = [onsets] 
+                    n_durations = [durations]
+                    fvs = [fvs]
+
+                all_fv = np.array([]).reshape(emb.shape[1], 0)
+                for onset, duration, fv in zip(n_onsets, n_durations, fvs):
+                    fv_temp = []
+                    frame_times = onset.numpy()
+
+                    for amplitude in fv.T:
+                        exp_conditions = (onset, duration, amplitude)
+                        signal, _ = hemodynamic_models.compute_regressor(exp_conditions, 
+                                    self.hrf_model, frame_times, oversampling=self.oversampling, min_onset=0)
+                        fv_temp.append(signal)
+                    b = np.squeeze(np.stack(fv_temp))
+                    all_fv = np.concatenate((all_fv, b),axis=1)
+
+                emb = np.squeeze(np.stack(all_fv)).T
+                emb = torch.from_numpy(emb).float().cuda()
 
         out = self.encoding_fmri(emb)
         

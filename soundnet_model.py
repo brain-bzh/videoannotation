@@ -1,4 +1,4 @@
-import torch
+import torch, warnings
 import torch.nn as nn
 from nistats import hemodynamic_models
 import numpy as np
@@ -283,6 +283,7 @@ class SoundNetEncoding(nn.Module):
             self.hrf_model=None
 
     def forward(self, x, onsets, durations):
+        warnings.filterwarnings("ignore")
         with torch.no_grad():
             emb = self.soundnet(x)
             emb = self.gpool(emb)

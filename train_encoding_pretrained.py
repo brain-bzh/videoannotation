@@ -79,9 +79,9 @@ mseloss = nn.MSELoss(reduction='sum')
 ### Optimizer and Schedulers
 #optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
 optimizer = torch.optim.Adam(net.parameters(), lr = 0.1)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-4,cooldown=2)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-2,cooldown=2)
 
-early_stopping = EarlyStopping(patience=15, verbose=True)
+early_stopping = EarlyStopping(patience=8, verbose=True)
 
 nbepoch = args.epochs
 
@@ -109,16 +109,21 @@ if False:
 startdate = datetime.now()
 
 train_loss = []
-train_r2 = []
+train_r2_max = []
+train_r2_mean = []
 val_loss = []
-val_r2 = []
+val_r2_max = []
+val_r2_mean = []
 for epoch in tqdm(range(nbepoch)):
     t_l, t_r2 = train(epoch,trainloader,net,optimizer,mseloss=mseloss)
     train_loss.append(t_l)
-    train_r2.append(t_r2)
+    train_r2_max.append(max(t_r2))
+    train_r2_mean.append(np.mean(t_r2))
+
     v_l, v_r2 = test(epoch,valloader,net,optimizer,mseloss=mseloss)
     val_loss.append(v_l)
-    val_r2.append(v_r2)
+    val_r2_max.append(max(v_r2))
+    val_r2_mean.append(np.mean(v_r2))
     print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
     lr_sched.step(val_loss[-1])
 
@@ -163,9 +168,11 @@ state = {
             'net': net.state_dict(),
             'epoch': epoch,
             'train_loss' : train_loss,
-            'train_r2' : train_r2,
+            'train_r2_max' : train_r2_max,
+            'train_r2_mean' : train_r2_mean,
             'val_loss' : val_loss,
-            'val_r2' : val_r2,
+            'val_r2_max' : val_r2_max,
+            'val_r2_mean' : val_r2_mean,
             'test_loss' : test_loss,
             'r2' : r2model,
             'r2max' : r2model.max(),
@@ -177,27 +184,35 @@ state = {
 
 
 ### Plot the loss figure
-f = plt.figure(figsize=(20,20))
+f = plt.figure(figsize=(20,40))
 
-ax = plt.subplot(3,1,2)
+ax = plt.subplot(4,1,2)
 
-plt.plot(state['train_loss'])
-plt.plot(state['val_loss'])
+plt.plot(state['train_loss'][1:])
+plt.plot(state['val_loss'][1:])
 plt.legend(['Train','Val'])
 plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad, hrf_model))
 
-### R2 evolution during training
-ax = plt.subplot(3,1,3)
+### Mean R2 evolution during training
+ax = plt.subplot(4,1,3)
 
-plt.plot(state['train_r2'])
-plt.plot(state['val_r2'])
+plt.plot(state['train_r2_mean'][1:])
+plt.plot(state['val_r2_mean'][1:])
 plt.legend(['Train','Val'])
-plt.title("R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+plt.title("Mean R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+
+### Max R2 evolution during training
+ax = plt.subplot(4,1,4)
+
+plt.plot(state['train_r2_max'][1:])
+plt.plot(state['val_r2_max'][1:])
+plt.legend(['Train','Val'])
+plt.title("Max R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
 
-ax = plt.subplot(3,1,1)
+ax = plt.subplot(4,1,1)
 
 plot_stat_map(r2_img,display_mode='z',cut_coords=8,figure=f,axes=ax)
 f.savefig(str_bestmodel_plot)

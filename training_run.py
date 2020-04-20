@@ -40,7 +40,7 @@ for subject, sub_path in subjects_path.items():
 
                 print(mv_result_path)
 
-                for hidden in [100, 500, 1000, 5000, 10000]:
+                for hidden in [100, 500, 1000]:
                     for audiopad in range(4):
                         for hrf_model in ['spm', 'glover']:
                             cmd = 'python3 train_encoding_pretrained.py --movie '+mv_path \

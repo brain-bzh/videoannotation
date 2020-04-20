@@ -57,7 +57,7 @@ def test_r2(testloader,net,mseloss):
     all_fmri_p = []
     net.eval()
     with torch.no_grad():
-        for onesample in testloader:
+        for onesample, offset, duration in testloader:
 
             bsize = onesample['waveform'].shape[0]
             
@@ -69,7 +69,7 @@ def test_r2(testloader,net,mseloss):
             fmri = onesample['fmri'].view(bsize,-1).cuda()
 
             # Forward pass
-            fmri_p = net(wav)
+            fmri_p = net(wav, offset, duration)
             
             all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
             all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))

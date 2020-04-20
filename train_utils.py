@@ -264,7 +264,7 @@ def train(epoch,trainloader,net,optimizer,mseloss):
         running_loss += loss.item()
         
 
-    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')      
+    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values') 
     return running_loss/batch_idx, r2_model
 
 
@@ -361,12 +361,10 @@ def construct_dataloader(path, fmripath, audiopad):
     trainsets = []
     testsets= []
     valsets = []
-
     for root, dirs, files in os.walk(path, topdown=False):
         for name in files:
             if name[-3:] == 'mkv':
                 currentvid = os.path.join(root, name)
-                #print(currentvid)
                 try:
                     dataset = AudioToEmbeddings(currentvid,fmripath=fmripath,samplerate=22050, audioPad=audiopad)
                     total_len = (len(dataset))

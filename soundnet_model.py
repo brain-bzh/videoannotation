@@ -1,5 +1,7 @@
-import torch
+import torch, warnings
 import torch.nn as nn
+from nistats import hemodynamic_models
+import numpy as np
 
 class WaveformCNN8(nn.Module):
     def __init__(self,nfeat=16,ninputfilters=16,do_encoding_fmri=False,nroi=210,fmrihidden=1000,nroi_attention=None):
@@ -247,7 +249,7 @@ class SoundNet8_pytorch(nn.Module):
 
 
 class SoundNetEncoding(nn.Module):
-    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0):
         super(SoundNetEncoding, self).__init__()
 
         self.soundnet = SoundNet8_pytorch()
@@ -258,6 +260,10 @@ class SoundNetEncoding(nn.Module):
         # load pretrained weights of original soundnet model
         self.soundnet.load_state_dict(torch.load(pytorch_param_path))
 
+        #freeze the parameters of soundNet
+        for param in self.soundnet.parameters():
+            param.requires_grad = False
+
         print("Pretrained model loaded")
 
         self.gpool = nn.AdaptiveAvgPool2d((1,1)) # Global average pooling
@@ -267,12 +273,52 @@ class SoundNetEncoding(nn.Module):
                 nn.ReLU(inplace=True),
                 nn.Linear(self.fmrihidden,self.nroi)
             )
+            
+        if hrf_model is not None : 
+            self.hrf_model = hrf_model
+            self.oversampling = oversampling
+            self.audiopad = audiopad
+            self.tr = tr
+        else :
+            self.hrf_model=None
 
-    def forward(self, x):
-        emb = self.soundnet(x)
-        emb = self.gpool(emb)
-        
-        out = self.encoding_fmri(emb.view(-1,1024))
+    def forward(self, x, onsets, durations):
+        warnings.filterwarnings("ignore")
+        with torch.no_grad():
+            emb = self.soundnet(x)
+            emb = self.gpool(emb)
+            emb = emb.view(-1,1024)
+
+            if self.hrf_model is not None :
+                fvs = emb.cpu().numpy()
+
+                index_zeros = np.where(onsets == 0)
+                if len(index_zeros[0]) > 0 and index_zeros[0][0] != 0:
+                    n_onsets = np.split(onsets, index_zeros[0]) 
+                    n_durations = np.split(durations, index_zeros[0])
+                    fvs = np.split(fvs, index_zeros[0])
+                else:
+                    n_onsets = [onsets] 
+                    n_durations = [durations]
+                    fvs = [fvs]
+
+                all_fv = np.array([]).reshape(emb.shape[1], 0)
+                for onset, duration, fv in zip(n_onsets, n_durations, fvs):
+                    fv_temp = []
+                    frame_times = onset.numpy()
+
+                    for amplitude in fv.T:
+                        exp_conditions = (onset, duration, amplitude)
+                        signal, _ = hemodynamic_models.compute_regressor(exp_conditions, 
+                                    self.hrf_model, frame_times, oversampling=self.oversampling, min_onset=0)
+                        fv_temp.append(signal)
+                    b = np.squeeze(np.stack(fv_temp))
+                    all_fv = np.concatenate((all_fv, b),axis=1)
+
+                emb = np.squeeze(np.stack(all_fv)).T
+                emb = torch.from_numpy(emb).float().cuda()
+
+        out = self.encoding_fmri(emb)
         
         return out
 

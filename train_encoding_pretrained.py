@@ -15,7 +15,6 @@ import torch.nn.functional as F
 import librosa
 import soundfile
 from soundnet_model import SoundNetEncoding
-
 import argparse
 
 parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
@@ -25,11 +24,15 @@ parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons 
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 
+parser.add_argument('--movie', default=None, type=str, help='Path to the movie directory')
+parser.add_argument('--subject', default=None, type=str, help='Path to the subject parcellation directory')
+parser.add_argument('--audiopad', default = 0, type=int, help='size of audio padding to take in account for one audio unit learned')
+parser.add_argument('--save_path', default=None, type=str, help='path to results')
+parser.add_argument('--hrf_model', default=None, type=str, help='hrf model to compute the regressors of the hemodynamic response')
 args = parser.parse_args()
 
-from train_utils import AudioToEmbeddings
-
-from train_utils import trainloader,valloader,testloader,dataset
+from train_utils import AudioToEmbeddings, construct_dataloader
+#from train_utils import trainloader,valloader,testloader,dataset
 
 from train_utils import train,test
 
@@ -43,14 +46,22 @@ from nilearn.regions import signals_to_img_labels
 from eval_utils import test_r2
 
 mistroifile = '/home/brain/MIST_ROI.nii.gz'
-                     
+#mistroifile = '/home/maelle/Database/MIST_parcellation/Parcellations/MIST_ROI.nii.gz'
+
+
+mv_path = args.movie
+sub_path = args.subject
+audiopad = args.audiopad
+hrf_model = args.hrf_model
+trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad)
+
 nroi_attention = args.nroi_attention
 fmrihidden = args.hidden
 
 print(args)
 
-
-destdir = 'cp_{}'.format(fmrihidden)
+save_path = args.save_path
+destdir = os.path.join(save_path, 'cp_{}'.format(fmrihidden))
 ### Model Setup
 if args.resume is not None:
     print("Reloading model {}".format(args.resume))
@@ -59,17 +70,18 @@ if args.resume is not None:
     net.load_state_dict(old_dict['net'])
 else:
     print("Training from scratch")
-    net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention)
+    net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model)
 
 net = net.cuda()
-mseloss = nn.MSELoss(reduction='mean')
+mseloss = nn.MSELoss(reduction='sum')
 
 ### Optimizer and Schedulers
-optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
+#optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
+optimizer = torch.optim.Adam(net.parameters(), lr = 0.1)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-2,cooldown=2)
 
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-4,cooldown=2)
-
-early_stopping = EarlyStopping(patience=15, verbose=True)
+early_stopping = EarlyStopping(patience=8, verbose=True)
 
 nbepoch = args.epochs
 
@@ -93,17 +105,25 @@ if False:
         print("CRASH TEST SUCCESSFUL")
 
 
-
-
-
 ### Main Training Loop 
 startdate = datetime.now()
 
 train_loss = []
+train_r2_max = []
+train_r2_mean = []
 val_loss = []
+val_r2_max = []
+val_r2_mean = []
 for epoch in tqdm(range(nbepoch)):
-    train_loss.append(train(epoch,trainloader,net,optimizer,mseloss=mseloss))
-    val_loss.append(test(epoch,valloader,net,optimizer,mseloss=mseloss))
+    t_l, t_r2 = train(epoch,trainloader,net,optimizer,mseloss=mseloss)
+    train_loss.append(t_l)
+    train_r2_max.append(max(t_r2))
+    train_r2_mean.append(np.mean(t_r2))
+
+    v_l, v_r2 = test(epoch,valloader,net,optimizer,mseloss=mseloss)
+    val_loss.append(v_l)
+    val_r2_max.append(max(v_r2))
+    val_r2_mean.append(np.mean(v_r2))
     print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
     lr_sched.step(val_loss[-1])
 
@@ -128,9 +148,9 @@ if not os.path.isdir(destdir):
 net.load_state_dict(torch.load('checkpoint.pt'))
 
 dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-str_bestmodel = os.path.join(destdir,"{}.pt".format(dt_string))
-str_bestmodel_plot = os.path.join(destdir,"{}_{}.png".format(dt_string,fmrihidden))
-str_bestmodel_nii = os.path.join(destdir,"{}_{}.nii.gz".format(dt_string,fmrihidden))
+str_bestmodel = os.path.join(destdir,"{}_{}_{}.pt".format(dt_string, fmrihidden, hrf_model))
+str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}.png".format(dt_string,fmrihidden, hrf_model))
+str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}.nii.gz".format(dt_string,fmrihidden, hrf_model))
 
 # Remove temp file 
 os.remove('checkpoint.pt')
@@ -148,7 +168,11 @@ state = {
             'net': net.state_dict(),
             'epoch': epoch,
             'train_loss' : train_loss,
+            'train_r2_max' : train_r2_max,
+            'train_r2_mean' : train_r2_mean,
             'val_loss' : val_loss,
+            'val_r2_max' : val_r2_max,
+            'val_r2_mean' : val_r2_mean,
             'test_loss' : test_loss,
             'r2' : r2model,
             'r2max' : r2model.max(),
@@ -160,19 +184,35 @@ state = {
 
 
 ### Plot the loss figure
-f = plt.figure(figsize=(20,10))
+f = plt.figure(figsize=(20,40))
 
-ax = plt.subplot(2,1,2)
+ax = plt.subplot(4,1,2)
 
-plt.plot(state['train_loss'])
-plt.plot(state['val_loss'])
+plt.plot(state['train_loss'][1:])
+plt.plot(state['val_loss'][1:])
 plt.legend(['Train','Val'])
-plt.title("Mean $R^2=${}, Max $R^2=${}".format(r2model.mean(),r2model.max()))
+plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad, hrf_model))
+
+### Mean R2 evolution during training
+ax = plt.subplot(4,1,3)
+
+plt.plot(state['train_r2_mean'][1:])
+plt.plot(state['val_r2_mean'][1:])
+plt.legend(['Train','Val'])
+plt.title("Mean R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+
+### Max R2 evolution during training
+ax = plt.subplot(4,1,4)
+
+plt.plot(state['train_r2_max'][1:])
+plt.plot(state['val_r2_max'][1:])
+plt.legend(['Train','Val'])
+plt.title("Max R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
 
-ax = plt.subplot(2,1,1)
+ax = plt.subplot(4,1,1)
 
 plot_stat_map(r2_img,display_mode='z',cut_coords=8,figure=f,axes=ax)
 f.savefig(str_bestmodel_plot)

@@ -450,9 +450,9 @@ trainsets = []
 testsets= []
 valsets = []
 
-path = '/media/brain/Elec_HD/cneuromod/movie10/stimuli/'
+path = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli'
+fmripath = '/home/nfarrugi/movie10_parc/sub-01'
 
-fmripath = '/home/brain/nico/sub-01'
 for root, dirs, files in os.walk(path, topdown=False):
     for name in files:
         if name[-3:] == 'mkv':

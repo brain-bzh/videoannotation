@@ -16,8 +16,7 @@ import librosa
 import soundfile
 import glob
 import os
-from itertools import islice
-from random import sample,shuffle
+from sklearn.metrics import r2_score
 
 ### Utility function to fetch fMRI data
 ### Modified from Maëlle Freteault 
@@ -76,13 +75,12 @@ def fetchMRI(videofile,fmripath):
 
     return association
 
-
 ### define DataSet for one video (to be iterated on all videos)
 
 class AudioToEmbeddings(torch.utils.data.Dataset):
     """Dataset that enables to load an audiofile synchronized with fMRI data and ImageNet, Places and AudioSet embeddings for Neuromod movie10."""
 
-    def __init__(self, videofile,samplerate = 12000,fmripath=None):
+    def __init__(self, videofile,samplerate = 12000,fmripath=None, audioPad=1):
         """
         Args:
             videofile (string): Path to the mkv file of a video.
@@ -91,7 +89,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         self.npzfile = (videofile[:-4] + '_fm_proba.npz')
 
         self.sample_rate = samplerate
-
+        self.audioPad = audioPad
 
         ### fetch the proba for the three modalities 
 
@@ -100,7 +98,6 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         self.audioset_proba = np.load(self.npzfile)['audioset_proba']
         self.dur = np.load(self.npzfile)['dur']
         self.onsets = np.load(self.npzfile)['onsets']
-
         
         
         #### Check if audio file exists
@@ -114,8 +111,7 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
             convert_Audio(videofile, self.wavfile)
 
         wav,native_sr = librosa.core.load(self.wavfile,duration=2,sr=None)
-
-        
+      
         if int(native_sr)!=int(self.sample_rate):
             print("Native Sampling rate is {}".format(native_sr))
 
@@ -133,14 +129,13 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
             association = fetchMRI(videofile,fmripath)
             ## Currently this will only fetch the second session of the film if there are two sessions
             for _,item in association.items():
-
                 self.fmrifile = os.path.join(fmripath,item[1])
 
                 ### load npz file 
+
                 self.fmri = torch.FloatTensor(np.load(self.fmrifile)['X'])
 
                 ### Check shape relative to other data types
-
                 if self.fmri.shape[0] != self.audioset_proba.shape[0]:
                     print("reshaping fmri and other data to minimum length of both")
 
@@ -150,10 +145,11 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
                     self.im_proba = self.im_proba[:min_len,:]
                     self.places_proba = self.places_proba[:min_len,:]
                     self.onsets = self.onsets[:min_len]
-                    
+        
+        #### Based on Cneuromod design, create a design matrix to compute the Hrf regressors in the training        
 
     def __len__(self):
-        return (self.fmri.shape[0])
+        return (self.fmri.shape[0] - 2*self.audioPad)
 
     def __getitem__(self, idx):
         try:
@@ -161,17 +157,16 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         except IndexError:
             raise(IndexError('Pb with sizes'))
 
+        duration = self.dur*(2*self.audioPad+1)
+        (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=duration)
 
-        (waveform, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=offset,duration=self.dur)
-
-        sample = {'waveform':(waveform),'places':(self.places_proba[idx]),
-            'audioset':(self.audioset_proba[idx]),'imagenet':(self.im_proba[idx])}
+        sample = {'waveform':(waveform),'places':(self.places_proba[idx+self.audioPad]),
+            'audioset':(self.audioset_proba[idx+self.audioPad]),'imagenet':(self.im_proba[idx]+self.audioPad)}
 
         if self.fmrifile is not None:
-            sample['fmri'] = self.fmri[idx]
+            sample['fmri'] = self.fmri[idx+self.audioPad]
 
-        
-        return (sample)
+        return (sample, offset, duration)
 
 
 class AudioToEmbeddingsIterableDataset(torch.utils.data.IterableDataset):
@@ -258,7 +253,6 @@ class AudioToEmbeddingsIterableDataset(torch.utils.data.IterableDataset):
         return iter(zip(self.wavdata,self.audioset_proba,self.im_proba,self.places_proba,self.fmri))
 
 def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
-
     running_loss = 0
     net.train()
 
@@ -300,7 +294,6 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         if mseloss is not None:
             fmri = onesample['fmri'].view(bsize,1,-1).cuda()
 
-
             if net.maskattention is not None:
                 
             
@@ -323,51 +316,49 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
         optimizer.step()
 
         running_loss += loss.item()
-
-        
+  
     return running_loss/batch_idx
 
 
 def train(epoch,trainloader,net,optimizer,mseloss):
-
+    all_fmri = []
+    all_fmri_p = []
     running_loss = 0
-    net.train()
+    net.soundnet.eval()
+    net.encoding_fmri.train()
 
-    for batch_idx, (onesample) in enumerate(trainloader):
-        
-
-
+    for batch_idx, (onesample, offset, duration) in enumerate(trainloader):
         optimizer.zero_grad()
         bsize = onesample['waveform'].shape[0]
-        
-        # for 1D output
-        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()        
 
+        # for 1D output
+        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()     
         # Forward pass
-        fmri_p = net(wav)
+        fmri_p = net(wav, offset, duration)
 
         # Calculate loss
-        
         fmri = onesample['fmri'].view(bsize,-1).cuda()
-        loss=mseloss(fmri_p,fmri)
-            
+        all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+        all_fmri_p.append(fmri_p.detach().cpu().numpy().reshape(bsize,-1))
+
+        loss=mseloss(fmri_p,fmri)/bsize  
         loss.backward()
-        
         optimizer.step()
 
         running_loss += loss.item()
         
 
-        
-    return running_loss/batch_idx
+    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values') 
+    return running_loss/batch_idx, r2_model
 
 
 def test(epoch,testloader,net,optimizer,mseloss):
-
+    all_fmri = []
+    all_fmri_p = []
     running_loss = 0
     net.eval()
     with torch.no_grad():
-        for batch_idx, (onesample) in enumerate(testloader):
+        for batch_idx, (onesample, offset, duration) in enumerate(testloader):
 
             bsize = onesample['waveform'].shape[0]
 
@@ -375,7 +366,7 @@ def test(epoch,testloader,net,optimizer,mseloss):
             wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
             
             # Forward pass
-            fmri_p = net(wav)
+            fmri_p = net(wav, offset, duration)
 
             # Calculate loss
 
@@ -383,11 +374,14 @@ def test(epoch,testloader,net,optimizer,mseloss):
             
             fmri = onesample['fmri'].view(bsize,-1).cuda()
                 
-            loss = mseloss(fmri_p,fmri)
-                
-            running_loss += loss.item()
+            loss = mseloss(fmri_p,fmri)/bsize
             
-        return running_loss/batch_idx
+            all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
+            running_loss += loss.item()
+
+        r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')   
+        return running_loss/batch_idx, r2_model
 
 def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
 
@@ -446,46 +440,36 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
             
     return running_loss/batch_idx
 
-trainsets = []
-testsets= []
-valsets = []
+def construct_dataloader(path, fmripath, audiopad):
 
-path = '/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli'
-fmripath = '/home/nfarrugi/movie10_parc/sub-01'
+    trainsets = []
+    testsets= []
+    valsets = []
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            if name[-3:] == 'mkv':
+                currentvid = os.path.join(root, name)
+                try:
+                    dataset = AudioToEmbeddings(currentvid,fmripath=fmripath,samplerate=22050, audioPad=audiopad)
+                    total_len = (len(dataset))
+                    train_len = int(np.floor(0.6*total_len))
+                    val_len = int(np.floor(0.2*total_len))
+                    test_len = int(np.floor(0.2*total_len)) - 1
 
-for root, dirs, files in os.walk(path, topdown=False):
-    for name in files:
-        if name[-3:] == 'mkv':
-            currentvid = os.path.join(root, name)
-            #print(currentvid)
-            try:
-                dataset = AudioToEmbeddings(currentvid,fmripath=fmripath,samplerate=16000)
-                total_len = (len(dataset))
-                train_len = int(np.floor(0.8*total_len))
-                val_len = int(np.floor(0.1*total_len))
-                test_len = int(np.floor(0.1*total_len)) - 1
-                trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
-                valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
-                testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
-                
-            except FileNotFoundError as expr:
-                print("Issue with file {}".format(currentvid))
-                print(expr)
-        
-        
-        
+                    trainsets.append(torch.utils.data.Subset(dataset, range(train_len)))
+                    valsets.append(torch.utils.data.Subset(dataset, range(train_len,train_len+val_len)))
+                    testsets.append(torch.utils.data.Subset(dataset, range(train_len+val_len,train_len+val_len+test_len)))
+
+                except FileNotFoundError as expr:
+                    print("Issue with file {}".format(currentvid))
+                    print(expr)
             
-
-        
-                
-if len(trainsets)>0:
     trainset = torch.utils.data.ConcatDataset(trainsets)
     valset = torch.utils.data.ConcatDataset(valsets)
     testset = torch.utils.data.ConcatDataset(testsets)
 
-    trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
+    trainloader = DataLoader(trainset,batch_size=64)
     valloader = DataLoader(valset,batch_size=64)
-    testloader = DataLoader(testset,batch_size=64) 
+    testloader = DataLoader(testset,batch_size=64)
 
-if __name__=='__main__':
-    pass
+    return trainloader, valloader, testloader, dataset

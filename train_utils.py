@@ -16,6 +16,8 @@ import librosa
 import soundfile
 import glob
 import os
+from itertools import islice
+from random import sample,shuffle
 
 ### Utility function to fetch fMRI data
 ### Modified from Maëlle Freteault 
@@ -67,7 +69,8 @@ def fetchMRI(videofile,fmripath):
             keyList.append(name_seg+'_S1')
             association[name_seg+'_S2'] = [videofile, mriMatchs[0]]
             keyList.append(name_seg+'_S2')
-    else : 
+    else :
+        
         association[name_seg] = [videofile, mriMatchs[0]]
         keyList.append(name_seg)
 
@@ -77,7 +80,7 @@ def fetchMRI(videofile,fmripath):
 ### define DataSet for one video (to be iterated on all videos)
 
 class AudioToEmbeddings(torch.utils.data.Dataset):
-    """Face Landmarks dataset."""
+    """Dataset that enables to load an audiofile synchronized with fMRI data and ImageNet, Places and AudioSet embeddings for Neuromod movie10."""
 
     def __init__(self, videofile,samplerate = 12000,fmripath=None):
         """
@@ -170,6 +173,89 @@ class AudioToEmbeddings(torch.utils.data.Dataset):
         
         return (sample)
 
+
+class AudioToEmbeddingsIterableDataset(torch.utils.data.IterableDataset):
+    def __init__(self, videofile,samplerate = 12000,fmripath=None):
+    
+
+        self.wavfile = (videofile[:-4] + '_subsampl.wav')
+        self.npzfile = (videofile[:-4] + '_fm_proba.npz')
+
+        self.sample_rate = samplerate
+
+
+        ### fetch the proba for the three modalities 
+
+        self.places_proba = np.load(self.npzfile)['places_proba']
+        self.im_proba = np.load(self.npzfile)['im_proba']
+        self.audioset_proba = np.load(self.npzfile)['audioset_proba']
+        self.dur = np.load(self.npzfile)['dur']
+        self.onsets = np.load(self.npzfile)['onsets']
+
+        
+        
+        #### Check if audio file exists
+        if os.path.isfile(self.wavfile) is False:
+
+            #### If not, generate it and put it at the same place than the video file , as a wav, with the same name
+            #### use this following audio file to generate predictions on sound 
+
+            print('wav file does not exist, converting from {videofile}...'.format(videofile=videofile))
+
+            convert_Audio(videofile, self.wavfile)
+
+        ## Load just 2 seconds to check the sample rate 
+        wav,native_sr = librosa.core.load(self.wavfile,duration=2,sr=None, mono=True)
+
+        # Resample and save if necessary 
+        if int(native_sr)!=int(self.sample_rate):
+            print("Native Sampling rate is {}".format(native_sr))
+
+            print('Resampling to {sr} Hz'.format(sr=self.sample_rate))
+
+            wav,_ = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True)
+            soundfile.write(self.wavfile,wav,self.sample_rate)
+
+        
+
+        ### Load the fmri data, if provided the path
+        # This will potentially modify the onsets
+        
+        self.fmrifile = None
+
+        if fmripath is not None:
+            #print('Finding corresponding MRI file(s)...')
+            association = fetchMRI(videofile,fmripath)
+            ## Currently this will only fetch the second session of the film if there are two sessions
+            for _,item in association.items():
+
+                self.fmrifile = os.path.join(fmripath,item[1])
+
+                ### load npz file 
+                self.fmri = torch.FloatTensor(np.load(self.fmrifile)['X'])
+
+                ### Check shape relative to other data types
+
+                if self.fmri.shape[0] != self.audioset_proba.shape[0]:
+                    #print("reshaping fmri and other data to minimum length of both")
+
+                    min_len = min(self.fmri.shape[0],self.audioset_proba.shape[0])
+                    self.fmri = self.fmri[:min_len,:]
+                    self.audioset_proba = self.audioset_proba[:min_len,:]
+                    self.im_proba = self.im_proba[:min_len,:]
+                    self.places_proba = self.places_proba[:min_len,:]
+                    self.onsets = self.onsets[:min_len]
+
+        ### Prepare a 2D numpy array with all the wave chunks organized along the first dimension
+        # 
+        #  
+        self.wavdata = []
+        for onset in self.onsets:
+            (chunk, _) = librosa.core.load(self.wavfile, sr=self.sample_rate, mono=True,offset=onset,duration=self.dur)
+            self.wavdata.append(torch.FloatTensor(chunk))
+        
+    def __iter__(self):
+        return iter(zip(self.wavdata,self.audioset_proba,self.im_proba,self.places_proba,self.fmri))
 
 def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None,alpha=1,beta=1,gamma=1,delta=1,epsilon=1):
 
@@ -392,11 +478,14 @@ for root, dirs, files in os.walk(path, topdown=False):
 
         
                 
+if len(trainsets)>0:
+    trainset = torch.utils.data.ConcatDataset(trainsets)
+    valset = torch.utils.data.ConcatDataset(valsets)
+    testset = torch.utils.data.ConcatDataset(testsets)
 
-trainset = torch.utils.data.ConcatDataset(trainsets)
-valset = torch.utils.data.ConcatDataset(valsets)
-testset = torch.utils.data.ConcatDataset(testsets)
+    trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
+    valloader = DataLoader(valset,batch_size=64)
+    testloader = DataLoader(testset,batch_size=64) 
 
-trainloader = DataLoader(trainset,batch_size=64,shuffle=True)
-valloader = DataLoader(valset,batch_size=64)
-testloader = DataLoader(testset,batch_size=64) 
+if __name__=='__main__':
+    pass

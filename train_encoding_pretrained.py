@@ -129,14 +129,14 @@ try:
         val_loss.append(v_l)
         val_r2_max.append(max(v_r2))
         val_r2_mean.append(np.mean(v_r2))
-        print("Train Loss | Mean R2 : {} | {}, Val Loss | Mean R2: {} | {}".format(train_loss[-1],train_r2_mean[-1],val_loss[-1],val_r2_mean[-1]))
+        print("Train Loss {} Train Mean R2 :  {} Train Max R2 : {}, Val Loss {} Val Mean R2:  {} Val Max R2 : {} ".format(train_loss[-1],train_r2_mean[-1],train_r2_max[-1],val_loss[-1],val_r2_mean[-1],val_r2_max[-1]))
         lr_sched.step(val_loss[-1])
 
         # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
         early_stopping(val_loss[-1], net)
         
-        #print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
+        print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
         if early_stopping.early_stop:
             print("Early stopping")
             break
@@ -227,3 +227,21 @@ r2_img.to_filename(str_bestmodel_nii)
 plt.close()
 
 torch.save(state, str_bestmodel)
+
+### Plot the Mask attention figure 
+if net.maskattention is not None:
+    str_bestmodel_mask = os.path.join(destdir,"{}_{}_{}_{}_{}_mask.png".format(dt_string,args.delta, args.epsilon, args.lr,args.batch))
+
+    mask_att = net.maskattention.detach().cpu().numpy().T
+    #print(mask_att.shape)
+    f= plt.figure(figsize=(20,40))
+
+    for i,curmask in enumerate(mask_att):
+        mask_att_img = signals_to_img_labels(curmask.reshape(1,-1),mistroifile)
+
+        ax = plt.subplot(mask_att.shape[0],1,i+1)
+
+
+        plot_stat_map(mask_att_img,display_mode='z',cut_coords=8,figure=f,axes=ax,threshold='auto')
+
+    f.savefig(str_bestmodel_mask)

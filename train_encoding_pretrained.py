@@ -135,8 +135,8 @@ try:
         # early_stopping needs the validation loss to check if it has decresed, 
             # and if it has, it will make a checkpoint of the current model
         early_stopping(val_loss[-1], net)
-        
-        print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
+        if net.maskattention is not None:
+            print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
         if early_stopping.early_stop:
             print("Early stopping")
             break

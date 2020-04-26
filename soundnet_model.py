@@ -346,7 +346,7 @@ class SoundNetEncoding_conv(nn.Module):
                 #nn.Conv2d(self.fmrihidden,self.nroi,kernel_size=(1,1)),
 
             )
-            
+
         if nroi_attention is not None:
             self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
         else:
@@ -361,7 +361,7 @@ class SoundNetEncoding_conv(nn.Module):
         else :
             self.hrf_model=None
 
-    def forward(self, x, onsets, durations):
+    def forward(self, x):
         warnings.filterwarnings("ignore")
         with torch.no_grad():
             emb = self.soundnet(x)

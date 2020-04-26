@@ -62,14 +62,15 @@ def test_r2(testloader,net,mseloss):
             bsize = onesample['waveform'].shape[0]
             
             # load data
-            wav = torch.Tensor(onesample['waveform']).cuda()
-
-            wav = wav.view(bsize,1,-1,1)
+            wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1).cuda()
 
             fmri = onesample['fmri'].view(bsize,-1).cuda()
 
             # Forward pass
-            fmri_p = net(wav, offset, duration)
+            fmri_p = net(wav, offset, duration).permute(2,1,0,3).squeeze()
+
+            #Cropping the end of the predicted fmri to match the measured bold
+            fmri_p = fmri_p[:bsize]
             
             all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
             all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))

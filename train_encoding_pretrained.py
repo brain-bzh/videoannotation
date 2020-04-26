@@ -14,20 +14,22 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SoundNetEncoding
+from soundnet_model import SoundNetEncoding,SoundNetEncoding_conv
 import argparse
 
 parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
 parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
+parser.add_argument('--batch', default=12, type=int, help='batch size (also corresponds to number of TR in a row)')
 parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
 parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
-
-parser.add_argument('--movie', default=None, type=str, help='Path to the movie directory')
-parser.add_argument('--subject', default=None, type=str, help='Path to the subject parcellation directory')
+parser.add_argument('--delta', default=1e-2, type=float, help='MSE penalty')
+parser.add_argument('--epsilon', default=1e-4, type=float, help='Ortho penalty for attention')
+parser.add_argument('--movie', default='/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli', type=str, help='Path to the movie directory')
+parser.add_argument('--subject', default='/home/nfarrugi/movie10_parc/sub-01', type=str, help='Path to the subject parcellation directory')
 parser.add_argument('--audiopad', default = 0, type=int, help='size of audio padding to take in account for one audio unit learned')
-parser.add_argument('--save_path', default=None, type=str, help='path to results')
+parser.add_argument('--save_path', default='.', type=str, help='path to results')
 parser.add_argument('--hrf_model', default=None, type=str, help='hrf model to compute the regressors of the hemodynamic response')
 args = parser.parse_args()
 
@@ -45,7 +47,7 @@ from nilearn.regions import signals_to_img_labels
 
 from eval_utils import test_r2
 
-mistroifile = '/home/brain/MIST_ROI.nii.gz'
+mistroifile = '/home/nfarrugi/git/GSP/MIST_ROI.nii.gz'
 #mistroifile = '/home/maelle/Database/MIST_parcellation/Parcellations/MIST_ROI.nii.gz'
 
 
@@ -53,7 +55,7 @@ mv_path = args.movie
 sub_path = args.subject
 audiopad = args.audiopad
 hrf_model = args.hrf_model
-trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad)
+trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad,bsize=args.batch)
 
 nroi_attention = args.nroi_attention
 fmrihidden = args.hidden
@@ -61,7 +63,9 @@ fmrihidden = args.hidden
 print(args)
 
 save_path = args.save_path
-destdir = os.path.join(save_path, 'cp_{}'.format(fmrihidden))
+destdir = os.path.join(save_path, 'cp_att_{}'.format(nroi_attention))
+if not os.path.isdir(destdir):
+    os.mkdir(destdir)
 ### Model Setup
 if args.resume is not None:
     print("Reloading model {}".format(args.resume))
@@ -70,7 +74,7 @@ if args.resume is not None:
     net.load_state_dict(old_dict['net'])
 else:
     print("Training from scratch")
-    net = SoundNetEncoding(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+    net = SoundNetEncoding_conv(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
                             hrf_model=hrf_model)
 
 net = net.cuda()
@@ -78,10 +82,10 @@ mseloss = nn.MSELoss(reduction='sum')
 
 ### Optimizer and Schedulers
 #optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
-optimizer = torch.optim.Adam(net.parameters(), lr = 0.1)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=10,threshold=1e-2,cooldown=2)
+optimizer = torch.optim.Adam(net.parameters(), lr = args.lr)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=20,threshold=1e-2,cooldown=5)
 
-early_stopping = EarlyStopping(patience=8, verbose=True)
+early_stopping = EarlyStopping(patience=24, verbose=True,delta=1e-6)
 
 nbepoch = args.epochs
 
@@ -114,43 +118,46 @@ train_r2_mean = []
 val_loss = []
 val_r2_max = []
 val_r2_mean = []
-for epoch in tqdm(range(nbepoch)):
-    t_l, t_r2 = train(epoch,trainloader,net,optimizer,mseloss=mseloss)
-    train_loss.append(t_l)
-    train_r2_max.append(max(t_r2))
-    train_r2_mean.append(np.mean(t_r2))
+try:
+    for epoch in tqdm(range(nbepoch)):
+        t_l, t_r2 = train(epoch,trainloader,net,optimizer,mseloss=mseloss,delta=args.delta,epsilon=args.epsilon)
+        train_loss.append(t_l)
+        train_r2_max.append(max(t_r2))
+        train_r2_mean.append(np.mean(t_r2))
 
-    v_l, v_r2 = test(epoch,valloader,net,optimizer,mseloss=mseloss)
-    val_loss.append(v_l)
-    val_r2_max.append(max(v_r2))
-    val_r2_mean.append(np.mean(v_r2))
-    print("Train : {}, Val : {} ".format(train_loss[-1],val_loss[-1]))
-    lr_sched.step(val_loss[-1])
+        v_l, v_r2 = test(epoch,valloader,net,optimizer,mseloss=mseloss,delta=args.delta,epsilon=args.epsilon)
+        val_loss.append(v_l)
+        val_r2_max.append(max(v_r2))
+        val_r2_mean.append(np.mean(v_r2))
+        print("Train Loss | Mean R2 : {} | {}, Val Loss | Mean R2: {} | {}".format(train_loss[-1],train_r2_mean[-1],val_loss[-1],val_r2_mean[-1]))
+        lr_sched.step(val_loss[-1])
 
-    # early_stopping needs the validation loss to check if it has decresed, 
-        # and if it has, it will make a checkpoint of the current model
-    early_stopping(val_loss[-1], net)
-    
-    #print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
-    if early_stopping.early_stop:
-        print("Early stopping")
-        break
+        # early_stopping needs the validation loss to check if it has decresed, 
+            # and if it has, it will make a checkpoint of the current model
+        early_stopping(val_loss[-1], net)
+        
+        #print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
+        if early_stopping.early_stop:
+            print("Early stopping")
+            break
+
+except KeyboardInterrupt:
+    print("Interrupted by user")
 
 test_loss = test(1,testloader,net,optimizer,mseloss=mseloss)
 #print("Test Loss : {}".format(test_loss))
 
 enddate = datetime.now()
 
-if not os.path.isdir(destdir):
-    os.mkdir(destdir)
+
 
 ## Reload best model 
 net.load_state_dict(torch.load('checkpoint.pt'))
 
 dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-str_bestmodel = os.path.join(destdir,"{}_{}_{}.pt".format(dt_string, fmrihidden, hrf_model))
-str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}.png".format(dt_string,fmrihidden, hrf_model))
-str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}.nii.gz".format(dt_string,fmrihidden, hrf_model))
+str_bestmodel = os.path.join(destdir,"{}_{}_{}_{}.pt".format(dt_string, nroi_attention, args.lr,args.batch))
+str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}_{}.png".format(dt_string,nroi_attention, args.lr,args.batch))
+str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}_{}.nii.gz".format(dt_string,nroi_attention, args.lr,args.batch))
 
 # Remove temp file 
 os.remove('checkpoint.pt')

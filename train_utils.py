@@ -320,7 +320,7 @@ def train_kl(epoch,trainloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=No
     return running_loss/batch_idx
 
 
-def train(epoch,trainloader,net,optimizer,mseloss):
+def train(epoch,trainloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
     all_fmri = []
     all_fmri_p = []
     running_loss = 0
@@ -332,16 +332,38 @@ def train(epoch,trainloader,net,optimizer,mseloss):
         bsize = onesample['waveform'].shape[0]
 
         # for 1D output
-        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()     
+        #print(onesample['waveform'].shape)    
+        wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1).cuda() ### Major CHange here, inputting the wav for the whole batch at once in the network
+        #print(wav.shape)     
         # Forward pass
-        fmri_p = net(wav, offset, duration)
+        fmri_p = net(wav, offset, duration).permute(2,1,0,3).squeeze()
+        #print(fmri_p.shape)
+        
+        #Cropping the end of the predicted fmri to match the measured bold
+        fmri_p = fmri_p[:bsize]
 
+        #print(fmri_p.shape)
         # Calculate loss
-        fmri = onesample['fmri'].view(bsize,-1).cuda()
+        
+        fmri = onesample['fmri'].cuda()
+        #print(fmri.shape)
         all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
         all_fmri_p.append(fmri_p.detach().cpu().numpy().reshape(bsize,-1))
 
-        loss=mseloss(fmri_p,fmri)/bsize  
+        if net.maskattention is not None:
+                
+            
+            masked_output = torch.matmul(fmri_p,net.maskattention)
+            masked_target = torch.matmul(fmri,net.maskattention)
+
+            lossattention = mseloss(masked_output,masked_target)
+
+            lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
+
+            loss= (delta*lossattention + epsilon*lossortho)/bsize
+        else:
+            loss=delta*mseloss(fmri_p,fmri)/bsize
+            #loss=mseloss(fmri_p,fmri)/bsize  
         loss.backward()
         optimizer.step()
 
@@ -352,7 +374,7 @@ def train(epoch,trainloader,net,optimizer,mseloss):
     return running_loss/batch_idx, r2_model
 
 
-def test(epoch,testloader,net,optimizer,mseloss):
+def test(epoch,testloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
     all_fmri = []
     all_fmri_p = []
     running_loss = 0
@@ -363,21 +385,40 @@ def test(epoch,testloader,net,optimizer,mseloss):
             bsize = onesample['waveform'].shape[0]
 
             # load data
-            wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
+            wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1).cuda()
             
             # Forward pass
-            fmri_p = net(wav, offset, duration)
+            fmri_p = net(wav, offset, duration).permute(2,1,0,3).squeeze()
+
+
+
+            #Cropping the end of the predicted fmri to match the measured bold
+            fmri_p = fmri_p[:bsize]
+
+            #print(fmri_p.shape)
 
             # Calculate loss
 
             # For 1D output
             
             fmri = onesample['fmri'].view(bsize,-1).cuda()
-                
-            loss = mseloss(fmri_p,fmri)/bsize
+            #print(fmri.shape)
+
+            if net.maskattention is not None:
+                masked_output = torch.matmul(fmri_p,net.maskattention)
+                masked_target = torch.matmul(fmri,net.maskattention)
+
+                lossattention = mseloss(masked_output,masked_target)
+
+                lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
+
+                loss= (delta*lossattention + epsilon*lossortho)/bsize
+            else:
+                loss=delta*mseloss(fmri_p,fmri)/bsize
+                #loss = mseloss(fmri_p,fmri)/bsize
             
             all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
-            all_fmri_p.append(fmri_p.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p[:bsize].cpu().numpy().reshape(bsize,-1))
             running_loss += loss.item()
 
         r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')   
@@ -440,7 +481,7 @@ def test_kl(epoch,testloader,net,optimizer,kl_im,kl_audio,kl_places,mseloss=None
             
     return running_loss/batch_idx
 
-def construct_dataloader(path, fmripath, audiopad):
+def construct_dataloader(path, fmripath, audiopad,bsize=64):
 
     trainsets = []
     testsets= []
@@ -468,8 +509,8 @@ def construct_dataloader(path, fmripath, audiopad):
     valset = torch.utils.data.ConcatDataset(valsets)
     testset = torch.utils.data.ConcatDataset(testsets)
 
-    trainloader = DataLoader(trainset,batch_size=64)
-    valloader = DataLoader(valset,batch_size=64)
-    testloader = DataLoader(testset,batch_size=64)
+    trainloader = DataLoader(trainset,batch_size=bsize)
+    valloader = DataLoader(valset,batch_size=bsize)
+    testloader = DataLoader(testset,batch_size=bsize)
 
     return trainloader, valloader, testloader, dataset

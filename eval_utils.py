@@ -57,17 +57,17 @@ def test_r2(testloader,net,mseloss):
     all_fmri_p = []
     net.eval()
     with torch.no_grad():
-        for onesample, offset, duration in testloader:
+        for (wav,audioset,imagenet,places,fmri) in testloader:
 
-            bsize = onesample['waveform'].shape[0]
+            bsize = wav.shape[0]
             
             # load data
-            wav = torch.Tensor(onesample['waveform']).view(1,1,-1,1).cuda()
+            wav = torch.Tensor(wav).view(1,1,-1,1).cuda()
 
-            fmri = onesample['fmri'].view(bsize,-1).cuda()
+            fmri = fmri.view(bsize,-1).cuda()
 
             # Forward pass
-            fmri_p = net(wav, offset, duration).permute(2,1,0,3).squeeze()
+            fmri_p = net(wav).permute(2,1,0,3).squeeze()
 
             #Cropping the end of the predicted fmri to match the measured bold
             fmri_p = fmri_p[:bsize]

@@ -112,9 +112,10 @@ try:
         print("Train Loss {} Train Mean R2 :  {} Train Max R2 : {}, Val Loss {} Val Mean R2:  {} Val Max R2 : {} ".format(train_loss[-1],train_r2_mean[-1],train_r2_max[-1],val_loss[-1],val_r2_mean[-1],val_r2_max[-1]))
         lr_sched.step(val_loss[-1])
 
-        # early_stopping needs the validation loss to check if it has decresed, 
-            # and if it has, it will make a checkpoint of the current model
-        early_stopping(val_loss[-1], net)
+        # early_stopping needs the R2 mean to check if it has increased, 
+        # and if it has, it will make a checkpoint of the current model
+        r2_forEL = -(val_r2_max[-1])
+        early_stopping(r2_forEL, net)
         if net.maskattention is not None:
             print(np.argmax(net.maskattention.detach().cpu().numpy(),axis=0))
         if early_stopping.early_stop:

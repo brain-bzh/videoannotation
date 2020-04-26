@@ -24,8 +24,8 @@ parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of 
 parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
-parser.add_argument('--delta', default=1e-2, type=float, help='MSE penalty')
-parser.add_argument('--epsilon', default=1e-4, type=float, help='Ortho penalty for attention')
+parser.add_argument('--delta', default=1e-1, type=float, help='MSE penalty')
+parser.add_argument('--epsilon', default=1e-2, type=float, help='Ortho penalty for attention')
 parser.add_argument('--movie', default='/home/nfarrugi/git/neuromod/cneuromod/movie10/stimuli', type=str, help='Path to the movie directory')
 parser.add_argument('--subject', default='/home/nfarrugi/movie10_parc/sub-01', type=str, help='Path to the subject parcellation directory')
 parser.add_argument('--audiopad', default = 0, type=int, help='size of audio padding to take in account for one audio unit learned')
@@ -155,9 +155,9 @@ enddate = datetime.now()
 net.load_state_dict(torch.load('checkpoint.pt'))
 
 dt_string = enddate.strftime("%Y-%m-%d-%H-%M-%S")
-str_bestmodel = os.path.join(destdir,"{}_{}_{}_{}.pt".format(dt_string, nroi_attention, args.lr,args.batch))
-str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}_{}.png".format(dt_string,nroi_attention, args.lr,args.batch))
-str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}_{}.nii.gz".format(dt_string,nroi_attention, args.lr,args.batch))
+str_bestmodel = os.path.join(destdir,"{}_{}_{}_{}_{}.pt".format(dt_string, args.delta, args.epsilon,args.lr,args.batch))
+str_bestmodel_plot = os.path.join(destdir,"{}_{}_{}_{}_{}.png".format(dt_string,args.delta, args.epsilon, args.lr,args.batch))
+str_bestmodel_nii = os.path.join(destdir,"{}_{}_{}_{}_{}.nii.gz".format(dt_string,args.delta, args.epsilon, args.lr,args.batch))
 
 # Remove temp file 
 os.remove('checkpoint.pt')

@@ -33,8 +33,7 @@ parser.add_argument('--save_path', default='.', type=str, help='path to results'
 parser.add_argument('--hrf_model', default=None, type=str, help='hrf model to compute the regressors of the hemodynamic response')
 args = parser.parse_args()
 
-from train_utils import AudioToEmbeddings, construct_dataloader
-#from train_utils import trainloader,valloader,testloader,dataset
+from train_utils import construct_dataloader, construct_iter_dataloader
 
 from train_utils import train,test
 
@@ -55,7 +54,8 @@ mv_path = args.movie
 sub_path = args.subject
 audiopad = args.audiopad
 hrf_model = args.hrf_model
-trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad,bsize=args.batch)
+#trainloader, valloader, testloader, dataset = construct_dataloader(mv_path, sub_path, audiopad,bsize=args.batch)
+trainloader, valloader, testloader, dataset = construct_iter_dataloader(mv_path, sub_path,bsize=args.batch)
 
 nroi_attention = args.nroi_attention
 fmrihidden = args.hidden
@@ -88,26 +88,6 @@ lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patie
 early_stopping = EarlyStopping(patience=10, verbose=True,delta=1e-6)
 
 nbepoch = args.epochs
-
-if False:
-    
-    with torch.no_grad():
-        
-        onesample = dataset.__getitem__(25)
-
-        bsize = 1
-
-        # load data
-        wav = torch.Tensor(onesample['waveform']).view(bsize,1,-1,1).cuda()
-        fmri = torch.Tensor(onesample['fmri']).view(bsize,-1).cuda()
-
-        print("Wave shape : {}".format(wav.shape))
-        print("fmri shape : {}".format(fmri.shape))
-
-        fmri_p = net(wav)
-        print("Predicted fmri shape : {}".format(fmri_p.shape))
-        print("CRASH TEST SUCCESSFUL")
-
 
 ### Main Training Loop 
 startdate = datetime.now()

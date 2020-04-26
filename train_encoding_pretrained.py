@@ -83,9 +83,9 @@ mseloss = nn.MSELoss(reduction='sum')
 ### Optimizer and Schedulers
 #optimizer = torch.optim.SGD(net.parameters(),lr=args.lr,momentum=0.9)
 optimizer = torch.optim.Adam(net.parameters(), lr = args.lr)
-lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=20,threshold=1e-2,cooldown=5)
+lr_sched = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,factor=0.2,patience=5,threshold=1e-2,cooldown=2)
 
-early_stopping = EarlyStopping(patience=24, verbose=True,delta=1e-6)
+early_stopping = EarlyStopping(patience=10, verbose=True,delta=1e-6)
 
 nbepoch = args.epochs
 

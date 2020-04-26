@@ -17,6 +17,7 @@ import soundfile
 import glob
 import os
 from sklearn.metrics import r2_score
+from random import sample,shuffle
 
 ### Utility function to fetch fMRI data
 ### Modified from Maëlle Freteault 
@@ -327,7 +328,112 @@ def train(epoch,trainloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
     net.soundnet.eval()
     net.encoding_fmri.train()
 
-    for batch_idx, (onesample, offset, duration) in enumerate(trainloader):
+    for batch_idx, (wav,audioset,imagenet,places,fmri) in enumerate(sample(trainloader,k=len(trainloader))):
+        optimizer.zero_grad()
+        bsize = wav.shape[0]
+
+        # for 1D output
+        #print(onesample['waveform'].shape)    
+        wav = torch.Tensor(wav).view(1,1,-1,1).cuda() ### Major CHange here, inputting the wav for the whole batch at once in the network
+        #print(wav.shape)     
+        # Forward pass
+        fmri_p = net(wav).permute(2,1,0,3).squeeze()
+        #print(fmri_p.shape)
+        
+        #Cropping the end of the predicted fmri to match the measured bold
+        fmri_p = fmri_p[:bsize]
+
+        #print(fmri_p.shape)
+        # Calculate loss
+        
+        fmri = fmri.cuda()
+        #print(fmri.shape)
+        all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+        all_fmri_p.append(fmri_p.detach().cpu().numpy().reshape(bsize,-1))
+
+        if net.maskattention is not None:
+                
+            
+            masked_output = torch.matmul(fmri_p,net.maskattention)
+            masked_target = torch.matmul(fmri,net.maskattention)
+
+            lossattention = mseloss(masked_output,masked_target)
+
+            lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
+
+            loss= (delta*lossattention + epsilon*lossortho)/bsize
+        else:
+            loss=delta*mseloss(fmri_p,fmri)/bsize
+            #loss=mseloss(fmri_p,fmri)/bsize  
+        loss.backward()
+        optimizer.step()
+
+        running_loss += loss.item()
+        
+
+    r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values') 
+    return running_loss/batch_idx, r2_model
+
+
+def test(epoch,testloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
+    all_fmri = []
+    all_fmri_p = []
+    running_loss = 0
+    net.eval()
+    with torch.no_grad():
+        for batch_idx, (wav,audioset,imagenet,places,fmri) in enumerate(sample(testloader,k=len(testloader))):
+
+            bsize = wav.shape[0]
+
+            # load data
+            wav = torch.Tensor(wav).view(1,1,-1,1).cuda()
+            
+            # Forward pass
+            fmri_p = net(wav).permute(2,1,0,3).squeeze()
+
+
+
+            #Cropping the end of the predicted fmri to match the measured bold
+            fmri_p = fmri_p[:bsize]
+
+            #print(fmri_p.shape)
+
+            # Calculate loss
+
+            # For 1D output
+            
+            fmri = fmri.view(bsize,-1).cuda()
+            #print(fmri.shape)
+
+            if net.maskattention is not None:
+                masked_output = torch.matmul(fmri_p,net.maskattention)
+                masked_target = torch.matmul(fmri,net.maskattention)
+
+                lossattention = mseloss(masked_output,masked_target)
+
+                lossortho = torch.norm(torch.matmul(net.maskattention.transpose(0,1),net.maskattention) - torch.eye(net.maskattention.shape[1]).cuda())
+
+                loss= (delta*lossattention + epsilon*lossortho)/bsize
+            else:
+                loss=delta*mseloss(fmri_p,fmri)/bsize
+                #loss = mseloss(fmri_p,fmri)/bsize
+            
+            all_fmri.append(fmri.cpu().numpy().reshape(bsize,-1))
+            all_fmri_p.append(fmri_p[:bsize].cpu().numpy().reshape(bsize,-1))
+            running_loss += loss.item()
+
+        r2_model = r2_score(np.vstack(all_fmri),np.vstack(all_fmri_p),multioutput='raw_values')   
+        return running_loss/batch_idx, r2_model
+
+def train_map(epoch,trainloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
+    ## train function to use with the map-style dataloader
+    all_fmri = []
+    all_fmri_p = []
+    running_loss = 0
+    net.soundnet.eval()
+    net.encoding_fmri.train()
+
+    for batch_idx, (onesample, offset, duration) in enumerate((trainloader)):
         optimizer.zero_grad()
         bsize = onesample['waveform'].shape[0]
 
@@ -374,7 +480,8 @@ def train(epoch,trainloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
     return running_loss/batch_idx, r2_model
 
 
-def test(epoch,testloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
+def test_map(epoch,testloader,net,optimizer,mseloss,delta=1e-2,epsilon=1e-4):
+    ##test function to use with the map-style dataloader
     all_fmri = []
     all_fmri_p = []
     running_loss = 0
@@ -514,3 +621,46 @@ def construct_dataloader(path, fmripath, audiopad,bsize=64):
     testloader = DataLoader(testset,batch_size=bsize)
 
     return trainloader, valloader, testloader, dataset
+
+
+def construct_iter_dataloader(path, fmripath,bsize=10):
+
+    datasets = []
+
+    for root, dirs, files in os.walk(path, topdown=False):
+        for name in files:
+            if name[-3:] == 'mkv':
+                currentvid = os.path.join(root, name)
+                try:
+                    dataset= AudioToEmbeddingsIterableDataset(currentvid,fmripath=fmripath,samplerate=22050)
+
+                    datasets += (list(torch.utils.data.DataLoader(dataset,batch_size=bsize,drop_last=True)))
+
+                    
+                except FileNotFoundError as expr:
+                    print("Issue with file {}".format(currentvid))
+                    print(expr)
+
+    ## Shuffle all the batches 
+
+    datasets = sample(datasets,k=len(datasets))
+
+    ### Divide in train val test
+
+    total_len = len(datasets)  
+    train_len = int(np.floor(0.6*total_len))
+    val_len = int(np.floor(0.2*total_len))
+    test_len = int(np.floor(0.2*total_len)) - 1
+
+    trainloader = datasets[:train_len]
+    valloader = datasets[train_len:train_len+val_len]
+    testloader = datasets[train_len+val_len:train_len+val_len+test_len]
+    return trainloader,valloader,testloader, dataset
+
+
+    
+    #trainloader = DataLoader(trainset,batch_size=bsize)
+    #valloader = DataLoader(valset,batch_size=bsize)
+    #testloader = DataLoader(testset,batch_size=bsize)
+
+    #return trainloader, valloader, testloader, dataset

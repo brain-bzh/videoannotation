@@ -322,3 +322,161 @@ class SoundNetEncoding(nn.Module):
         
         return out
 
+class SoundNetEncoding_conv(nn.Module):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0,transfer=True,preload=True):
+        super(SoundNetEncoding_conv, self).__init__()
+
+        self.soundnet = SoundNet8_pytorch()
+        self.fmrihidden = fmrihidden
+        self.nroi = nroi
+
+        if preload:
+            print("Loading SoundNet weights...")
+            # load pretrained weights of original soundnet model
+            self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+            print("Pretrained model loaded")
+            if transfer:
+                #freeze the parameters of soundNet
+                print("Transfer learning - backbone is fixed")
+                for param in self.soundnet.parameters():
+                    param.requires_grad = False
+            else:
+                print("Finetuning : backbone will be optimized")
+
+        self.encoding_fmri = nn.Sequential(                
+                nn.Conv2d(1024,self.nroi,kernel_size=(1,1)),
+                #nn.ReLU(inplace=True),
+                #nn.Conv2d(self.fmrihidden,self.nroi,kernel_size=(1,1)),
+
+            )
+
+        if nroi_attention is not None:
+            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
+        else:
+            self.maskattention = None
+        
+            
+        if hrf_model is not None : 
+            self.hrf_model = hrf_model
+            self.oversampling = oversampling
+            self.audiopad = audiopad
+            self.tr = tr
+        else :
+            self.hrf_model=None
+
+    def forward(self, x):
+        warnings.filterwarnings("ignore")
+        with torch.no_grad():
+            emb = self.soundnet(x)
+
+        out = self.encoding_fmri(emb)
+        
+        return out
+
+
+class SoundNetEncoding_conv_2(nn.Module):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0,transfer=True,preload=True):
+        super(SoundNetEncoding_conv_2, self).__init__()
+
+        self.soundnet = SoundNet8_pytorch()
+        self.fmrihidden = fmrihidden
+        self.nroi = nroi
+
+        if preload:
+            print("Loading SoundNet weights...")
+            # load pretrained weights of original soundnet model
+            self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+            print("Pretrained model loaded")
+            if transfer:
+                #freeze the parameters of soundNet
+                print("Transfer learning - backbone is fixed")
+                for param in self.soundnet.parameters():
+                    param.requires_grad = False
+            else:
+                print("Finetuning : backbone will be optimized")
+
+        self.encoding_fmri = nn.Sequential(                
+                nn.Conv2d(1024,self.fmrihidden,kernel_size=(1,1)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self.fmrihidden,self.nroi,kernel_size=(1,1)),
+
+            )
+
+        if nroi_attention is not None:
+            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
+        else:
+            self.maskattention = None
+        
+            
+        if hrf_model is not None : 
+            self.hrf_model = hrf_model
+            self.oversampling = oversampling
+            self.audiopad = audiopad
+            self.tr = tr
+        else :
+            self.hrf_model=None
+
+    def forward(self, x):
+        warnings.filterwarnings("ignore")
+        with torch.no_grad():
+            emb = self.soundnet(x)
+
+        out = self.encoding_fmri(emb)
+        
+        return out
+
+
+class SoundNetEncoding_conv_3(nn.Module):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0,transfer=True,preload=True):
+        super(SoundNetEncoding_conv_3, self).__init__()
+
+        self.soundnet = SoundNet8_pytorch()
+        self.fmrihidden = fmrihidden
+        self.nroi = nroi
+
+        if preload:
+            print("Loading SoundNet weights...")
+            # load pretrained weights of original soundnet model
+            self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+            print("Pretrained model loaded")
+            if transfer:
+                #freeze the parameters of soundNet
+                print("Transfer learning - backbone is fixed")
+                for param in self.soundnet.parameters():
+                    param.requires_grad = False
+            else:
+                print("Finetuning : backbone will be optimized")
+
+            
+
+        self.encoding_fmri = nn.Sequential(                
+                nn.Conv2d(1024,2*self.fmrihidden,kernel_size=(1,1)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(2*self.fmrihidden,self.fmrihidden,kernel_size=(1,1)),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(self.fmrihidden,self.nroi,kernel_size=(1,1)),
+
+            )
+
+        if nroi_attention is not None:
+            self.maskattention = torch.nn.Parameter(torch.rand(nroi,nroi_attention))
+        else:
+            self.maskattention = None
+        
+            
+        if hrf_model is not None : 
+            self.hrf_model = hrf_model
+            self.oversampling = oversampling
+            self.audiopad = audiopad
+            self.tr = tr
+        else :
+            self.hrf_model=None
+
+    def forward(self, x):
+        warnings.filterwarnings("ignore")
+        with torch.no_grad():
+            emb = self.soundnet(x)
+
+        out = self.encoding_fmri(emb)
+        
+        return out

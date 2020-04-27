@@ -330,15 +330,15 @@ class SoundNetEncoding_conv(nn.Module):
         self.fmrihidden = fmrihidden
         self.nroi = nroi
 
-        print("Loading SoundNet weights...")
-        # load pretrained weights of original soundnet model
-        self.soundnet.load_state_dict(torch.load(pytorch_param_path))
-
-        #freeze the parameters of soundNet
-        for param in self.soundnet.parameters():
-            param.requires_grad = False
-
-        print("Pretrained model loaded")
+        if preload:
+            print("Loading SoundNet weights...")
+            # load pretrained weights of original soundnet model
+            self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+            print("Pretrained model loaded")
+            if transfer:
+                #freeze the parameters of soundNet
+                for param in self.soundnet.parameters():
+                    param.requires_grad = False
 
         self.encoding_fmri = nn.Sequential(                
                 nn.Conv2d(1024,self.nroi,kernel_size=(1,1)),
@@ -372,22 +372,22 @@ class SoundNetEncoding_conv(nn.Module):
 
 
 class SoundNetEncoding_conv_2(nn.Module):
-    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0):
+    def __init__(self,pytorch_param_path,nroi=210,fmrihidden=1000,nroi_attention=None, hrf_model=None, oversampling = 16, tr = 1.49, audiopad = 0,transfer=True,preload=True):
         super(SoundNetEncoding_conv_2, self).__init__()
 
         self.soundnet = SoundNet8_pytorch()
         self.fmrihidden = fmrihidden
         self.nroi = nroi
 
-        print("Loading SoundNet weights...")
-        # load pretrained weights of original soundnet model
-        self.soundnet.load_state_dict(torch.load(pytorch_param_path))
-
-        #freeze the parameters of soundNet
-        for param in self.soundnet.parameters():
-            param.requires_grad = False
-
-        print("Pretrained model loaded")
+        if preload:
+            print("Loading SoundNet weights...")
+            # load pretrained weights of original soundnet model
+            self.soundnet.load_state_dict(torch.load(pytorch_param_path))
+            print("Pretrained model loaded")
+            if transfer:
+                #freeze the parameters of soundNet
+                for param in self.soundnet.parameters():
+                    param.requires_grad = False
 
         self.encoding_fmri = nn.Sequential(                
                 nn.Conv2d(1024,self.fmrihidden,kernel_size=(1,1)),
@@ -432,13 +432,13 @@ class SoundNetEncoding_conv_3(nn.Module):
             print("Loading SoundNet weights...")
             # load pretrained weights of original soundnet model
             self.soundnet.load_state_dict(torch.load(pytorch_param_path))
-
+            print("Pretrained model loaded")
             if transfer:
                 #freeze the parameters of soundNet
                 for param in self.soundnet.parameters():
                     param.requires_grad = False
 
-        print("Pretrained model loaded")
+            
 
         self.encoding_fmri = nn.Sequential(                
                 nn.Conv2d(1024,2*self.fmrihidden,kernel_size=(1,1)),

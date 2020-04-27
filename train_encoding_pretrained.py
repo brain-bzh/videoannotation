@@ -186,7 +186,7 @@ ax = plt.subplot(4,1,2)
 plt.plot(state['train_loss'][1:])
 plt.plot(state['val_loss'][1:])
 plt.legend(['Train','Val'])
-plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad, hrf_model))
+plt.title("loss evolution => Mean R^2=${}, Max R^2={}, for batchsize ={} and {} hidden neurons".format(r2model.mean(),r2model.max(), args.batch, fmrihidden))
 
 ### Mean R2 evolution during training
 ax = plt.subplot(4,1,3)
@@ -194,7 +194,7 @@ ax = plt.subplot(4,1,3)
 plt.plot(state['train_r2_mean'][1:])
 plt.plot(state['val_r2_mean'][1:])
 plt.legend(['Train','Val'])
-plt.title("Mean R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+plt.title("Mean R^2 evolution for batchsize ={} and {} hidden neurons".format(args.batch, fmrihidden))
 
 ### Max R2 evolution during training
 ax = plt.subplot(4,1,4)
@@ -202,7 +202,7 @@ ax = plt.subplot(4,1,4)
 plt.plot(state['train_r2_max'][1:])
 plt.plot(state['val_r2_max'][1:])
 plt.legend(['Train','Val'])
-plt.title("Max R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+plt.title("Max R^2 evolution for batchsize ={} and {} hidden neurons".format(args.batch, fmrihidden))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
@@ -210,6 +210,7 @@ r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)
 ax = plt.subplot(4,1,1)
 
 plot_stat_map(r2_img,display_mode='z',cut_coords=8,figure=f,axes=ax)
+plt.colorbar()
 f.savefig(str_bestmodel_plot)
 r2_img.to_filename(str_bestmodel_nii)
 plt.close()

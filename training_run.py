@@ -40,15 +40,21 @@ for subject, sub_path in subjects_path.items():
 
                 print(mv_result_path)
 
-                for hidden in [100, 500, 1000]:
-                    for audiopad in range(4):
-                        for hrf_model in ['spm', 'glover']:
-                            cmd = 'python3 train_encoding_pretrained.py --movie '+mv_path \
-                                +' --subject '+sub_path \
-                                +' --audiopad '+str(audiopad) \
-                                +' --hidden '+str(hidden) \
-                                +' --save_path '+mv_result_path \
-                                +' --hrf_model '+hrf_model                    
-                            os.system(cmd)
-                    
+                for hidden in [500, 1000]:
+                    for batch in range(10, 151, 20):
+                        cmd = 'python3 train_encoding_pretrained.py --movie '+mv_path \
+                            +' --subject '+sub_path \
+                            +' --save_path '+mv_result_path \
+                            +' --epochs '+str(5000) \
+                            +' --lr '+str(0.01) \
+                            +' --delta '+str(1e-1) \
+                            +' --epsilon '+str(1e-2) \
+                            +' --model '+str(1) \
+                            +' --batch '+str(batch) \
+                            +' --hidden '+str(hidden)                  
+                        os.system(cmd)
+                
+
+
+#python train_encoding_pretrained.py --epochs 5000 --lr 0.01 --batch 70 --delta 1e-1 --epsilon 1e-2 --model 1 --hidden 500
     

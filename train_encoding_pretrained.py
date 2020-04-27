@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 import torch.nn.functional as F
 import librosa
 import soundfile
-from soundnet_model import SoundNetEncoding,SoundNetEncoding_conv
+from soundnet_model import SoundNetEncoding,SoundNetEncoding_conv,SoundNetEncoding_conv_2,SoundNetEncoding_conv_3
 import argparse
 
 parser = argparse.ArgumentParser(description='Neuromod Movie10 Distillation-transferred encoding model')
@@ -22,6 +22,7 @@ parser.add_argument('--lr', default=0.001, type=float, help='learning rate')
 parser.add_argument('--batch', default=12, type=int, help='batch size (also corresponds to number of TR in a row)')
 parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
 parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
+parser.add_argument('--model', default=0, type=int, help='Which model (0, 1 or 2)')
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 parser.add_argument('--delta', default=1e-1, type=float, help='MSE penalty')
@@ -62,8 +63,13 @@ fmrihidden = args.hidden
 
 print(args)
 
+models = [SoundNetEncoding_conv(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model),SoundNetEncoding_conv_2(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model),SoundNetEncoding_conv_3(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model)]
+
 save_path = args.save_path
-destdir = os.path.join(save_path, 'cp_att_{}'.format(nroi_attention))
+destdir = os.path.join(save_path, 'cp_model_{}'.format(args.model))
 if not os.path.isdir(destdir):
     os.mkdir(destdir)
 ### Model Setup
@@ -74,9 +80,8 @@ if args.resume is not None:
     net.load_state_dict(old_dict['net'])
 else:
     print("Training from scratch")
-    net = SoundNetEncoding_conv(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model)
-
+    net = models[args.model]
+del models
 net = net.cuda()
 mseloss = nn.MSELoss(reduction='sum')
 

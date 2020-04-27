@@ -23,6 +23,8 @@ parser.add_argument('--batch', default=12, type=int, help='batch size (also corr
 parser.add_argument('--epochs', default=5000, type=int, help='Maximum number of epochs')
 parser.add_argument('--hidden', default=1000, type=int, help='Number of neurons for hidden layer in the encoding model (previous layer has 128*expansion fm)')
 parser.add_argument('--model', default=0, type=int, help='Which model (0, 1 or 2)')
+parser.add_argument('--scratch', action='store_true', help='Train from scratch (default False = load pretrained soundnet)')
+parser.add_argument('--finetune', action='store_true', help='Fine tune instead of transfer (default False = transfer)')
 parser.add_argument('--nroi_attention', default=None, type=int, help='number of regions to learn using outputattention')
 parser.add_argument('--resume', default=None, type=str, help='Path to model checkpoint to resume training')
 parser.add_argument('--delta', default=1e-1, type=float, help='MSE penalty')
@@ -64,9 +66,9 @@ fmrihidden = args.hidden
 print(args)
 
 models = [SoundNetEncoding_conv(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model),SoundNetEncoding_conv_2(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model),SoundNetEncoding_conv_3(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model)]
+                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch)),SoundNetEncoding_conv_2(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch)),SoundNetEncoding_conv_3(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch))]
 
 save_path = args.save_path
 destdir = os.path.join(save_path, 'cp_model_{}'.format(args.model))
@@ -79,7 +81,7 @@ if args.resume is not None:
     net = old_dict['model']
     net.load_state_dict(old_dict['net'])
 else:
-    print("Training from scratch")
+    
     net = models[args.model]
 del models
 net = net.cuda()

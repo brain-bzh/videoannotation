@@ -20,8 +20,8 @@ subjects_path = {'sub_01':'/home/maelle/Database/movie10_parc/sub-01',
 movies_path = {#'life': '/home/maelle/Database/cneuromod/movie10/stimuli/life',
             #'bourne_supremacy':'/home/maelle/Database/cneuromod/movie10/stimuli/bourne_supremacy',
             #'hidden_figures':'/home/maelle/Database/cneuromod/movie10/stimuli/hidden_figures',
-            'wolf_of_wall_street':'/media/brain/Elec_HD/cneuromod/movie10/stimuli/wolf_of_wall_street', 
-            #'all_movies':'/home/maelle/Database/cneuromod/movie10/stimuli'
+            #'wolf_of_wall_street':'/home/maelle/Database/cneuromod/movie10/stimuli/wolf_of_wall_street', 
+            'all_movies':'/home/maelle/Database/cneuromod/movie10/stimuli'
             }
 
 def create_directory_if_necessary(path, name):

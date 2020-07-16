@@ -633,9 +633,13 @@ def construct_iter_dataloader(path, fmripath,bsize=10):
                 currentvid = os.path.join(root, name)
                 try:
                     dataset= AudioToEmbeddingsIterableDataset(currentvid,fmripath=fmripath,samplerate=22050)
+                    temp = torch.utils.data.DataLoader(dataset,batch_size=bsize, drop_last=True)
+                    #for truc in temp:
+                    #    print(truc[0].shape)
 
-                    datasets += (list(torch.utils.data.DataLoader(dataset,batch_size=bsize,drop_last=True)))
-
+                    temp2 = list(temp)
+                    #print(f'      bloup : ',len(temp))
+                    datasets += (temp2)
                     
                 except FileNotFoundError as expr:
                     print("Issue with file {}".format(currentvid))

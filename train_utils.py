@@ -633,17 +633,20 @@ def construct_iter_dataloader(path, fmripath,bsize=10):
                 currentvid = os.path.join(root, name)
                 try:
                     dataset= AudioToEmbeddingsIterableDataset(currentvid,fmripath=fmripath,samplerate=22050)
+                    temp = torch.utils.data.DataLoader(dataset,batch_size=bsize, drop_last=True)
+                    #for truc in temp:
+                    #    print(truc[0].shape)
 
-                    datasets += (list(torch.utils.data.DataLoader(dataset,batch_size=bsize,drop_last=True)))
-
+                    temp2 = list(temp)
+                    #print(f'      bloup : ',len(temp))
+                    datasets += (temp2)
                     
                 except FileNotFoundError as expr:
                     print("Issue with file {}".format(currentvid))
                     print(expr)
 
     ## Shuffle all the batches 
-
-    datasets = sample(datasets,k=len(datasets))
+    #datasets = sample(datasets,k=len(datasets))
 
     ### Divide in train val test
 
@@ -652,9 +655,9 @@ def construct_iter_dataloader(path, fmripath,bsize=10):
     val_len = int(np.floor(0.2*total_len))
     test_len = int(np.floor(0.2*total_len)) - 1
 
-    trainloader = datasets[:train_len]
-    valloader = datasets[train_len:train_len+val_len]
-    testloader = datasets[train_len+val_len:train_len+val_len+test_len]
+    trainloader = sample(datasets[:train_len], k=train_len)
+    valloader = sample(datasets[train_len:train_len+val_len], k=val_len)
+    testloader = sample(datasets[train_len+val_len:train_len+val_len+test_len], k=test_len)
     return trainloader,valloader,testloader, dataset
 
 

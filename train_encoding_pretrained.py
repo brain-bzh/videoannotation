@@ -49,8 +49,8 @@ from nilearn.regions import signals_to_img_labels
 
 from eval_utils import test_r2
 
-mistroifile = '/home/nfarrugi/git/GSP/MIST_ROI.nii.gz'
-#mistroifile = '/home/maelle/Database/MIST_parcellation/Parcellations/MIST_ROI.nii.gz'
+#mistroifile = '/home/nfarrugi/git/GSP/MIST_ROI.nii.gz'
+mistroifile = '/home/maelle/Database/MIST_parcellation/Parcellations/MIST_ROI.nii.gz'
 
 
 mv_path = args.movie
@@ -65,15 +65,14 @@ fmrihidden = args.hidden
 
 print(args)
 
-models = [SoundNetEncoding_conv(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch)),SoundNetEncoding_conv_2(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch)),SoundNetEncoding_conv_3(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
-                            hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch))]
+models = [SoundNetEncoding_conv, SoundNetEncoding_conv_2, SoundNetEncoding_conv_3]
 
-save_path = args.save_path
-destdir = os.path.join(save_path, 'cp_model_{}'.format(args.model))
-if not os.path.isdir(destdir):
-    os.mkdir(destdir)
+chosen_model = models[args.model]
+destdir = args.save_path
+#destdir = os.path.join(save_path, 'cp_model_{}'.format(args.model))
+#if not os.path.isdir(destdir):
+#    os.mkdir(destdir)
+
 ### Model Setup
 if args.resume is not None:
     print("Reloading model {}".format(args.resume))
@@ -81,8 +80,8 @@ if args.resume is not None:
     net = old_dict['model']
     net.load_state_dict(old_dict['net'])
 else:
-    
-    net = models[args.model]
+    net = chosen_model(pytorch_param_path='./sound8.pth',fmrihidden=fmrihidden,nroi_attention=nroi_attention, 
+                        hrf_model=hrf_model,transfer=not(args.finetune),preload=not(args.scratch))
 del models
 net = net.cuda()
 mseloss = nn.MSELoss(reduction='sum')
@@ -186,7 +185,7 @@ ax = plt.subplot(4,1,2)
 plt.plot(state['train_loss'][1:])
 plt.plot(state['val_loss'][1:])
 plt.legend(['Train','Val'])
-plt.title("Mean R^2=${}, Max R^2={}, for audiopad ={} and {} model".format(r2model.mean(),r2model.max(), audiopad, hrf_model))
+plt.title("loss evolution => Mean test R^2=${}, Max test R^2={}, for model {}, batchsize ={} and {} hidden neurons".format(r2model.mean(),r2model.max(), args.model, args.batch, fmrihidden))
 
 ### Mean R2 evolution during training
 ax = plt.subplot(4,1,3)
@@ -194,7 +193,7 @@ ax = plt.subplot(4,1,3)
 plt.plot(state['train_r2_mean'][1:])
 plt.plot(state['val_r2_mean'][1:])
 plt.legend(['Train','Val'])
-plt.title("Mean R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+plt.title("Mean R^2 evolution for model {}, batchsize ={} and {} hidden neurons".format(args.model, args.batch, fmrihidden))
 
 ### Max R2 evolution during training
 ax = plt.subplot(4,1,4)
@@ -202,7 +201,7 @@ ax = plt.subplot(4,1,4)
 plt.plot(state['train_r2_max'][1:])
 plt.plot(state['val_r2_max'][1:])
 plt.legend(['Train','Val'])
-plt.title("Max R^2 evolution for audiopad ={} and {} model".format(audiopad, hrf_model))
+plt.title("Max R^2 evolution for model {}, batchsize ={} and {} hidden neurons".format(args.model, args.batch, fmrihidden))
 
 ### R2 figure 
 r2_img = signals_to_img_labels(r2model.reshape(1,-1),mistroifile)

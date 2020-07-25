@@ -9,6 +9,37 @@ from matplotlib import pyplot as plt
 
 import datetime
 
+import os
+
+
+
+
+def convert_Audio(mediaFile, outFile):
+    cmd = 'ffmpeg -i '+mediaFile+' '+outFile
+    os.system(cmd)
+    return outFile
+
+
+#### imagenet categories
+
+def cat_file():
+    # load classes file
+    categories = []
+    try:
+        f = open('categories.txt', 'r')
+        for line in f:
+            cat = line.split(',')[0].split('\n')[0]
+            if cat != 'classes':
+                categories.append(cat)
+        f.close()
+        #print('Number of categories:', len(categories))
+    except:
+        print('Error opening file ' + ' categories.txt')
+        quit()
+    return categories
+
+
+categories = cat_file() # load category file
 
 COCO_INSTANCE_CATEGORY_NAMES = [
     '__background__', 'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus',
@@ -25,38 +56,15 @@ COCO_INSTANCE_CATEGORY_NAMES = [
     'clock', 'vase', 'scissors', 'teddy bear', 'hair drier', 'toothbrush'
 ]
 
-#### imagenet categories
-
-def cat_file():
-    # load classes file
-    categories = []
-    try:
-        f = open('categories.txt', 'r')
-        for line in f:
-            cat = line.split(',')[0].split('\n')[0]
-            if cat != 'classes':
-                categories.append(cat)
-        f.close()
-        print('Number of categories:', len(categories))
-    except:
-        print('Error opening file ' + ' categories.txt')
-        quit()
-    return categories
-
-
-categories = cat_file() # load category file
-
-
 
 
 def annotate_img(preds,vframes,n_obj=5):
-
+    global COCO_INSTANCE_CATEGORY_NAMES
     ### vframes  : last three dims input tensor to faster_rcnn
 
     ### preds : dictionary of outputs of fater_rcnn
 
-    global COCO_INSTANCE_CATEGORY_NAMES
-
+    
     predlabels = [COCO_INSTANCE_CATEGORY_NAMES[i] for i in preds['labels'].numpy()]
     scores = [i for i in preds['scores'].detach().numpy()]
     bboxes = [i for i in preds['boxes'].detach().numpy()]

@@ -26,7 +26,7 @@ Currently runs on the first 10 minutes of the video, annotating one frame every 
 
 Credits
 --
-Nicolas Farrugia, IMT Atlantique, 2020. 
+Nicolas Farrugia, Maëlle Freteault, IMT Atlantique, 2020. 
 
 Code for Places365CNN from [Bolei Zhou](https://github.com/CSAILVision/places365).
 

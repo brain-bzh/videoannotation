@@ -18,9 +18,9 @@ Requirements
 
 Usage
 --
-    python run_generate_srt.py video.mkv
+    python annotate.py video.mkv
 
-This will generate a srt file with the same name as the video file. 
+This will generate a srt file with the same name as the video file, as well as a npz file with several structured information (output probabilities of all networks). 
 
 Currently runs on the first 10 minutes of the video, annotating one frame every three seconds, and generates a subtitle that lasts 2 seconds.
 
